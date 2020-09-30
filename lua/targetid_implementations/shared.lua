@@ -1,6 +1,6 @@
 
 function hudtargetidimpl_default()
-   if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("supersheep_removed") && IsValid(LocalPlayer():GetNWEntity("supersheep_entity")) then
+   if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("demonicsheep_removed") && IsValid(LocalPlayer():GetNWEntity("demonicsheep_entity")) then
 	   --print("test")
 	   
 	   local GetRaw = LANG.GetRawTranslation
@@ -36,14 +36,14 @@ function hudtargetidimpl_default()
 		  -- DrawPropSpecLabels(client)
 	   -- end
 		
-	   local supersheep = LocalPlayer():GetNWEntity("supersheep_entity")
+	   local demonicsheep = LocalPlayer():GetNWEntity("demonicsheep_entity")
 		
-	   local startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45))
+	   local startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45))
 	   
-	   local endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
-	   if LocalPlayer():GetNWBool("supersheep_small") then
-			startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
-			endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
+	   local endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
+	   if LocalPlayer():GetNWBool("demonicsheep_small") then
+			startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
+			endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
 	   end
 	   --endpos:Mul(MAX_TRACE_LENGTH)
 	   --endpos:Add(startpos)
@@ -250,7 +250,7 @@ function hudtargetidimpl_default()
 end
 
 function hudtargetidimpl_totem()
-	 if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("supersheep_removed") && IsValid(LocalPlayer():GetNWEntity("supersheep_entity")) then
+	 if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("demonicsheep_removed") && IsValid(LocalPlayer():GetNWEntity("demonicsheep_entity")) then
 	   
 	   local GetRaw = LANG.GetRawTranslation
 	   local GetPTranslation = LANG.GetParamTranslation
@@ -285,13 +285,13 @@ function hudtargetidimpl_totem()
 		  -- DrawPropSpecLabels(client)
 	   -- end
 	   
-	   local supersheep = LocalPlayer():GetNWEntity("supersheep_entity")
+	   local demonicsheep = LocalPlayer():GetNWEntity("demonicsheep_entity")
 		
-	   local startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45)) 
-	   local endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
-	   	   if LocalPlayer():GetNWBool("supersheep_small") then
-			startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
-			endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
+	   local startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45)) 
+	   local endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
+	   	   if LocalPlayer():GetNWBool("demonicsheep_small") then
+			startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
+			endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
 	   end  
 	   --endpos:Mul(MAX_TRACE_LENGTH)
 	  -- endpos:Add(startpos)
@@ -509,7 +509,7 @@ function hudtargetidimpl_totem()
 end
 
 function hudtargetidimpl_ttt2()
-    if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("supersheep_removed") && IsValid(LocalPlayer():GetNWEntity("supersheep_entity")) then
+    if IsValid(LocalPlayer()) && IsValid(LocalPlayer():GetActiveWeapon()) && not LocalPlayer():GetNWBool("demonicsheep_removed") && IsValid(LocalPlayer():GetNWEntity("demonicsheep_entity")) then
 	   
 	   local GetRaw = LANG.GetRawTranslation
 	   local GetPTranslation = LANG.GetParamTranslation
@@ -544,13 +544,13 @@ function hudtargetidimpl_ttt2()
 		  -- DrawPropSpecLabels(client)
 	   -- end
 	   
-	   local supersheep = LocalPlayer():GetNWEntity("supersheep_entity")
+	   local demonicsheep = LocalPlayer():GetNWEntity("demonicsheep_entity")
 		
-	   local startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45))
-	   local endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
-	   if LocalPlayer():GetNWBool("supersheep_small") then
-			startpos = supersheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
-			endpos = supersheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
+	   local startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*100 + Vector(0, 0, -45))
+	   local endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -45))
+	   if LocalPlayer():GetNWBool("demonicsheep_small") then
+			startpos = demonicsheep:GetPos() -( LocalPlayer():EyeAngles():Forward()*50 + Vector(0, 0, -10))
+			endpos = demonicsheep:GetPos() + ( LocalPlayer():EyeAngles():Forward()*20000 + Vector(0, 0, -10))
 	   end
 	   
 	  
