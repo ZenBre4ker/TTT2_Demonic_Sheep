@@ -8,12 +8,14 @@ ENT.AutomaticFrameAdvance = true
 ENT.Spawnable 		= false
 ENT.AdminSpawnable 	= false
 ENT.PrintName		= "demonicsheep"
+ENT.isInitialized = false
 
 local collided = false
 local ent = self
 
 function ENT:Initialize()
-	
+	self.isInitialized = true	
+
 	self:SetNWBool("exploded", false)
 	self.MovementMode = 0
 	self.SpawnTime = CurTime()
@@ -46,6 +48,9 @@ function ENT:Initialize()
 	end
 	
 	if(SERVER) then
+		net.Start("InitializedDemonicSheep")
+		net.WriteEntity(self)
+		net.Send(self.Owner)
 		
 		self.BigHitbox = ents.Create("prop_physics")
 		self.BigHitbox:SetModel("models/props_c17/oildrum001_explosive.mdl")
@@ -98,8 +103,7 @@ function ENT:Initialize()
 		
 		--self.TrailLeft:FollowBone(self, capeLeftBone)
 		--self.TrailRight:FollowBone(self, capeRightBone)
-	end
-	
+	end	
 end
 
 function ENT:UpdateTransmitState()
@@ -115,7 +119,6 @@ function ENT:PhysicsCollide(data, phys)
 		return 
 	end
 	self:Explode()
-
 end
 
 function ENT:Explode()
@@ -163,116 +166,113 @@ function ENT:Explode()
 															self:Remove()
 														end
 													end )
-
 end
 
 
 function ENT:Think()
-if SERVER && (not IsValid(self.Owner) || not self.Owner:Alive()) then
-	self:Explode()
-end
+	if SERVER && (not IsValid(self.Owner) || not self.Owner:Alive()) then
+		self:Explode()
+	end
 
-self:Fly()
+	self:Fly()
 
---self:SetPos(Vector(500, 500, -30))
---self:SetAngles(Angle(0, 0, 0))
+	--self:SetPos(Vector(500, 500, -30))
+	--self:SetAngles(Angle(0, 0, 0))
 
-self:NextThink( CurTime() + 0.033 ) -- Set the tickrate to 33 ticks/s. Maybe this prevents laggs.
+	self:NextThink( CurTime() + 0.033 ) -- Set the tickrate to 33 ticks/s. Maybe this prevents laggs.
 
-if not self:GetNWBool("exploded") then return true end
-if (IsValid(self) && IsValid(self.CorrespondingWeapon)) then
-	self.CorrespondingWeapon.CancelSound = true
-	--self.CorrespondingWeapon:StopSound("demonicsheep_wind")
-end
---self.Owner:GetActiveWeapon():EmitSound("weapons/crossbow/hitbod1.wav")
+	if not self:GetNWBool("exploded") then return true end
+	if (IsValid(self) && IsValid(self.CorrespondingWeapon)) then
+		self.CorrespondingWeapon.CancelSound = true
+		--self.CorrespondingWeapon:StopSound("demonicsheep_wind")
+	end
+	--self.Owner:GetActiveWeapon():EmitSound("weapons/crossbow/hitbod1.wav")
 
-if CLIENT then return true end
-self:SetMoveType(MOVETYPE_NONE)
---self:Remove()
-
+	if CLIENT then return true end
+	self:SetMoveType(MOVETYPE_NONE)
+	--self:Remove()
 end
 
 function ENT:Fly()
 
-if self.Minify then
-	if not self.Minified then
+	if self.Minify then
+		if not self.Minified then
 		
-		self.MinifiedStart = CurTime()
-		self.Minified = true
-		self.Owner:SetNWBool("demonicsheep_small", true)
+			self.MinifiedStart = CurTime()
+			self.Minified = true
+			self.Owner:SetNWBool("demonicsheep_small", true)
 		
-		if SERVER then
-			self:SetModelScale( self:GetModelScale() * 0.25, 1)
+			if SERVER then
+				self:SetModelScale( self:GetModelScale() * 0.25, 1)
 
-			self.BigHitbox:SetPos(Vector(0, 0, 0))
-			self.BigHitbox:SetModelScale( self.BigHitbox:GetModelScale() * 0.25, 1)
-			self.BigHitbox:SetPos(Vector(-7.5, 0, 0) + Vector(0, 0, 2.5))
+				self.BigHitbox:SetPos(Vector(0, 0, 0))
+				self.BigHitbox:SetModelScale( self.BigHitbox:GetModelScale() * 0.25, 1)
+				self.BigHitbox:SetPos(Vector(-7.5, 0, 0) + Vector(0, 0, 2.5))
 			
 			
-			self.TrailLeft:SetPos(self:GetPos() - self:GetAngles():Forward() * 1.25 + self:GetAngles():Up() * 3.25 + self:GetAngles():Right() * 1.5)
-			self.TrailRight:SetPos(self:GetPos() - self:GetAngles():Forward() * 1.25 + self:GetAngles():Up() * 3.25 + self:GetAngles():Right() * -1.5)
+				self.TrailLeft:SetPos(self:GetPos() - self:GetAngles():Forward() * 1.25 + self:GetAngles():Up() * 3.25 + self:GetAngles():Right() * 1.5)
+				self.TrailRight:SetPos(self:GetPos() - self:GetAngles():Forward() * 1.25 + self:GetAngles():Up() * 3.25 + self:GetAngles():Right() * -1.5)
 			
-			--self.TrailLeft:SetPos(Vector(1.25, 0, 0) + Vector(0, 0, 3.25) + Vector(0, 1.5, 0))
-			--self.TrailRight:SetPos(Vector(1.25, 0, 0) + Vector(0, 0, 3.25) + Vector(0, -1.5, 0))
-		end
-	else
+				--self.TrailLeft:SetPos(Vector(1.25, 0, 0) + Vector(0, 0, 3.25) + Vector(0, 1.5, 0))
+				--self.TrailRight:SetPos(Vector(1.25, 0, 0) + Vector(0, 0, 3.25) + Vector(0, -1.5, 0))
+			end
+		else
 	
-		self.MinifiedStart = CurTime()
-		self.Minified = false
-		self.Owner:SetNWBool("demonicsheep_small", false)
+			self.MinifiedStart = CurTime()
+			self.Minified = false
+			self.Owner:SetNWBool("demonicsheep_small", false)
 		
-		if SERVER then
-			self:SetModelScale( self:GetModelScale() * 4, 1)
+			if SERVER then
+				self:SetModelScale( self:GetModelScale() * 4, 1)
 
-			self.BigHitbox:SetPos(Vector(0, 0, 0))
-			self.BigHitbox:SetModelScale( self.BigHitbox:GetModelScale() * 4, 1)
-			self.BigHitbox:SetPos(Vector(-30, 0, 0) + Vector(0, 0, 10))
+				self.BigHitbox:SetPos(Vector(0, 0, 0))
+				self.BigHitbox:SetModelScale( self.BigHitbox:GetModelScale() * 4, 1)
+				self.BigHitbox:SetPos(Vector(-30, 0, 0) + Vector(0, 0, 10))
 			
-			self.TrailLeft:SetPos(self:GetPos() - self:GetAngles():Forward() * 5 + self:GetAngles():Up() * 13 + self:GetAngles():Right() * 6)
-			self.TrailRight:SetPos(self:GetPos() - self:GetAngles():Forward() * 5 + self:GetAngles():Up() * 13 + self:GetAngles():Right() * -6)
+				self.TrailLeft:SetPos(self:GetPos() - self:GetAngles():Forward() * 5 + self:GetAngles():Up() * 13 + self:GetAngles():Right() * 6)
+				self.TrailRight:SetPos(self:GetPos() - self:GetAngles():Forward() * 5 + self:GetAngles():Up() * 13 + self:GetAngles():Right() * -6)
+			end
+		end
+		self.Minify = false
+	end
+
+	--handle fly animation
+	if(not self.First) then
+		if SERVER then
+			self:SetModelScale( self:GetModelScale() * 4)
+			--self.BigHitbox:SetModelScale(self.BigHitbox:GetModelScale() * 4, 1)
+		end
+
+		local sequence = self:LookupSequence( ACT_VM_PRIMARYATTACK  )
+		self:ResetSequence( sequence )
+		self.First = true
+	end
+
+	if CLIENT then return end
+	local phys = self:GetPhysicsObject()	
+	phys:EnableGravity(false)
+
+	eyeAngles = self.Owner:EyeAngles()
+	if CurTime() - self.SpawnTime > 1.0 then
+		self:SetAngles(eyeAngles)
+	else
+		self:SetAngles(eyeAngles)
+	end
+
+	if self.Boost then 
+		self.Boost = false
+		if self.Minified then
+			phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 100)
+		else
+			phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 200)
+		end
+	else
+		if self.Minified then
+			phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 50)
+		else
+			phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 100)
 		end
 	end
-	self.Minify = false
-end
-
---handle fly animation
-if(not self.First) then
-	if SERVER then
-		self:SetModelScale( self:GetModelScale() * 4)
-		--self.BigHitbox:SetModelScale(self.BigHitbox:GetModelScale() * 4, 1)
-	end
-
-	local sequence = self:LookupSequence( ACT_VM_PRIMARYATTACK  )
-	self:ResetSequence( sequence )
-	self.First = true
-end
-
-if CLIENT then return end
-local phys = self:GetPhysicsObject()	
-phys:EnableGravity(false)
-
-eyeAngles = self.Owner:EyeAngles()
-if CurTime() - self.SpawnTime > 1.0 then
-	self:SetAngles(eyeAngles)
-else
-	self:SetAngles(eyeAngles)
-end
-
-if self.Boost then 
-	self.Boost = false
-	if self.Minified then
-		phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 100)
-	else
-		phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 200)
-	end
-else
-	if self.Minified then
-		phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 50)
-	else
-		phys:ApplyForceCenter(self.Owner:GetEyeTrace().Normal * 100)
-	end
-end
-
 end
 
 function ENT:OnTakeDamage(damage)
@@ -294,8 +294,12 @@ function ENT:Draw()
 	self:DrawModel()
 	--if not IsValid(self.Owner) || LocalPlayer() == self.Owner then return end
 	--if not IsValid(self.Owner) then return end
-	
-	local pos = self:GetPos() + Vector(0, 0, 30)
+	local pos = self:GetPos()
+	if self.Minified then
+		pos = pos + Vector(0, 0, 15)
+	else
+		pos = pos + Vector(0, 0, 30)
+	end
 	local ang = Angle(0, LocalPlayer():GetAngles().y - 90, 90)
 	surface.SetFont("demonicsheep_Font")
 	local width = 200 / 1.5
@@ -304,7 +308,7 @@ function ENT:Draw()
 	cam.Start3D2D(pos, ang, 0.3)
 		draw.RoundedBox( 5, -width / 2, -5, 100 * 2 / 1.5, 15, Color(181, 27, 19, 220) )
 		draw.RoundedBox( 5, -width / 2 , -5, self:Health() * 2 / 1.5, 15, Color(26, 182, 19, 220) )
-		draw.SimpleText( tostring(self:Health()) .. " / 100", "demonicsheep_Font", 0, -7, Color(255,255,255,255), TEXT_ALIGN_CENTER)
+		draw.SimpleText( tostring(self:Health()) .. " / 111", "demonicsheep_Font", 0, -7, Color(255,255,255,255), TEXT_ALIGN_CENTER)
 	cam.End3D2D()
 	
 	render.OverrideDepthEnable( true, true )
