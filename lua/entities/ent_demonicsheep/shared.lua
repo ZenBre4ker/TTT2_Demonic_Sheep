@@ -1,3 +1,5 @@
+--[[
+
 if SERVER then
 	AddCSLuaFile()
 end
@@ -155,17 +157,17 @@ function ENT:Explode()
 	end
 	
 	timer.Create( "demonicsheep_explosion_delay", 1.5, 1, function()
-														if IsValid(self) && IsValid(self.Owner) && IsValid(self.Owner:GetActiveWeapon()) then
-															--print(self.Owner)
-															-- local newWeapon = self.Owner:GetWeapons()[2]
-															-- if (SERVER && IsValid(newWeapon)) then
-																-- self.Owner:SelectWeapon(newWeapon:GetClass())
-															-- end
-															self.Owner:SetNWBool("demonicsheep_removed", true)
-															self.Owner:GetActiveWeapon():Remove()
-															self:Remove()
-														end
-													end )
+		if IsValid(self) && IsValid(self.Owner) && IsValid(self.Owner:GetActiveWeapon()) then
+			--print(self.Owner)
+			-- local newWeapon = self.Owner:GetWeapons()[2]
+			-- if (SERVER && IsValid(newWeapon)) then
+				-- self.Owner:SelectWeapon(newWeapon:GetClass())
+			-- end
+			self.Owner:SetNWBool("demonicsheep_removed", true)
+			self.Owner:GetActiveWeapon():Remove()
+			self:Remove()
+		end
+	end )
 end
 
 
@@ -188,7 +190,9 @@ function ENT:Think()
 	end
 	--self.Owner:GetActiveWeapon():EmitSound("weapons/crossbow/hitbod1.wav")
 
-	if CLIENT then return true end
+	if CLIENT then 
+		return true 
+	end
 	self:SetMoveType(MOVETYPE_NONE)
 	--self:Remove()
 end
@@ -323,3 +327,5 @@ function ENT:Draw()
 	cam.Start3D()
 	cam.End3D()
 end
+
+--]]
