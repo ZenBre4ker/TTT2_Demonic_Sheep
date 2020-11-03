@@ -1,7 +1,475 @@
+-- SWEP Initialization
+SWEP.Base				= "weapon_tttbase"
 
+SWEP.PrintName			= "Demonic Sheep"
+SWEP.Author				= "ZenBreaker"
+SWEP.Instructions		= "Launch the Demonic Sheep, fly to and aim at your enemies to control them!"
+SWEP.Slot				= 1
+SWEP.SlotPos			= 2
+SWEP.Icon				= "vgui/ttt/demonicsheep/demonicsheep.png"
+SWEP.EquipMenuData		= {
+	type = "item_weapon",
+	desc = [[
+	Launch the Demonicsheep and control your enemies!
+	Left-Click: Control Enemy
+	Right-Click: Change Mode
+	Reload: Exit Sheepmode
+	]]
+	}
 
+SWEP.Spawnable			= false
+SWEP.AutoSpawnable		= false
+SWEP.LimitedStock		= true
+SWEP.AllowDrop			= true
+SWEP.HoldType			= "knife"
+SWEP.Kind				= WEAPON_EQUIP2
+SWEP.CanBuy				= { ROLE_TRAITOR }
+
+SWEP.DeploySpeed		= 0.01
+SWEP.Primary.Ammo		= "Demonicsheep"
+SWEP.Primary.Recoil		= 0
+SWEP.Primary.Damage		= 0
+SWEP.Primary.Delay		= 0.0
+SWEP.Primary.Cone		= 0
+SWEP.Primary.ClipSize	= 1
+SWEP.Primary.ClipMax	= 1
+SWEP.Primary.DefaultClip = 1
+SWEP.Primary.Automatic	= false
+
+SWEP.Secondary.Automatic = false
+SWEP.Secondary.Delay	= 5
+
+SWEP.ViewModelFlip  	= false
+SWEP.DrawCrosshair 		= false
+SWEP.UseHands			= true
+SWEP.ViewModelFOV		= 60
+SWEP.ViewModel			= "models/weapons/v_ttt_demonicsheep.mdl"
+SWEP.WorldModel			= "models/weapons/w_ttt_demonicsheep.mdl"
+SWEP.IronSightsPos		= Vector(2.773, 0, 0.846)
+SWEP.IronSightsAng		= Vector(-0.157, 0, 0)
+
+-- Server only Initialization
+if SERVER then
+	AddCSLuaFile()
+	util.AddNetworkString("launchDemonicSheep")
+	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
+		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
+	end
+end
+
+-- Client only Initialization
+if CLIENT and file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
+	include("terrortown/scripts/targetid_implementations.lua")
+end
+
+-- All local used variables
+local demonicSheepSwep
+
+-- All SWEP functions
+function SWEP:Initialize()
+	demonicSheepSwep = self
+
+	self.demonicSheepEnt = nil
+	self.demonicSheepEntOut = false
+	self.demonicSheepEntInUse = false
+
+	self.allowHolster = true
+	self.holsterSheepTimer = nil
+	self.holsterSheepAnimation = true
+	self.holsterToWep = self
+	self.isForceHolstered = false
+	self.resetSightsTimer = nil
+	self.initializeSheepTimer = nil
+	self.enableControlSheepTimer = nil
+	self.drawLocalPlayer = false
+
+	self.lastAngle = nil
+	self.lastOrigin = nil
+
+	if SERVER then
+		net.Receive("launchDemonicSheep", function(len, ply) self:receiveSheepPosition(len, ply) end)
+	end
+
+end
+
+function SWEP:Deploy()
+	-- Plays Draw_Weapon-Animation of the Sheep in your Hands
+	local bPlayDrawAnimation = true
+	self:playDrawWeaponAnimation(bPlayDrawAnimation)
+
+	-- Allows general holstering
+	self.allowHolster = true
+
+	self.lastOwner = self:GetOwner()
+
+	-- Add a hook to be able to show your world model, when flying
+	hook.Add("ShouldDrawLocalPlayer", "demonicsheepShowLocalPlayer", function()
+		if self.shouldDrawLocalPlayer then
+			return self:shouldDrawLocalPlayer()
+		else
+			hook.Remove("ShouldDrawLocalPlayer", "demonicsheepShowLocalPlayer")
+			return
+		end
+	end)
+end
+
+function SWEP:Holster(wep)
+	if not self.allowHolster then return false end
+
+	-- Animate the Sheep and send a timer before actually holstering it
+	if not self.holsterSheepTimer and self.holsterSheepAnimation then
+		self:SendWeaponAnim(ACT_VM_HOLSTER)
+
+		-- Set Timer and subtract 0.1 to holster before animation is finished
+		self.holsterSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration() - 0.1
+		self.holsterToWep = wep
+	end
+
+	-- As long as the Animation is not done, don't allow holstering it
+	if self.holsterSheepAnimation and self.holsterSheepTimer then return false end
+	self.holsterSheepAnimation = true
+
+	-- To prevent Holstering again and creating a loop 
+	self.allowHolster = false
+	return true
+end
+
+function SWEP:OnDrop()
+	return
+end
+
+function SWEP:OnRemove()
+	return
+end
+
+function SWEP:PrimaryAttack()
+	self:SetNextPrimaryFire(CurTime() + 1)
+
+	if self.demonicSheepEntOut then
+	-- Control Sheep, don't launch it again
+	else
+		self:launchSheep()
+		self.allowHolster = false
+
+		if CLIENT then
+			hook.Add("CreateMove", "blockPlayerActionsInLaunch", function(cmd)
+				cmd:ClearMovement()
+				cmd:ClearButtons()
+			end)
+		end
+
+		hook.Add("SetupMove", "blockPlayerAnimations", function(ply, mv, cmd)
+			if self.blockPlayerAnimations then
+				self:blockPlayerAnimations(ply, mv, cmd)
+			else
+				hook.Remove("SetupMove", "blockPlayerAnimations")
+			end
+		end)
+
+		hook.Add("FinishMove", "blockPlayerMovement", function(ply, mv)
+			if self.blockPlayerMovement then
+				return self:blockPlayerMovement(ply, mv)
+			else
+				hook.Remove("FinishMove", "blockPlayerMovement")
+				return
+			end
+		end)
+
+	end
+end
+
+function SWEP:SecondaryAttack()
+	self:SetNextSecondaryFire(CurTime() + 0.1)
+
+	if not IsFirstTimePredicted() then return end
+
+	print("\nMarker.")
+end
+
+function SWEP:Reload()
+
+end
+
+function SWEP:Think()
+	-- Switching to idle Animation after Draw Weapon Animation got played
+	if not self.demonicSheepEntOut and not self.demonicSheepEntInUse and self.resetSightsTimer and self.resetSightsTimer <= CurTime() then
+		self.resetSightsTimer = nil
+		self:SendWeaponAnim(ACT_VM_IDLE)
+	end
+
+	-- Allowing to holster after playing its Animation
+	if self.holsterSheepTimer and self.holsterSheepTimer <= CurTime() then
+		self.holsterSheepTimer = nil
+		self.holsterSheepAnimation = false
+
+		-- Use Input Commands for Prediction
+		if CLIENT then
+			input.SelectWeapon(self.holsterToWep)
+		end
+
+		-- Select Weapon on Server for other cases, i.e. switching to weapon with "use"-key
+		if SERVER then
+			self:GetOwner():SelectWeapon(WEPS.GetClass(self.holsterToWep))
+		end
+	end
+
+	-- Initializing the demonic sheep after animation got played
+	if self.initializeSheepTimer and self.initializeSheepTimer <= CurTime() then
+		if CLIENT then
+			self.demonicSheepEnt = self:GetOwner():GetNWEntity("demonicSheepEnt")
+		end
+
+		if IsValid(self.demonicSheepEnt) then
+			self.initializeSheepTimer = nil
+			self.enableControlSheepTimer = CurTime() + 0.2
+			self.demonicSheepEnt:EnablePhysicsControl(true, 1.7)
+			if CLIENT then
+				self:sendSheepPosition()
+			end
+		end
+	end
+
+	if self.enableControlSheepTimer and self.enableControlSheepTimer <= CurTime() and IsValid(self.demonicSheepEnt) then
+		self.enableControlSheepTimer = nil
+
+		self.demonicSheepEntInUse = true
+		self:SetNoDraw(true)
+		self.drawLocalPlayer = true
+
+		self.demonicSheepEnt:EnableRendering(true)
+
+		if CLIENT then
+			hook.Remove("CreateMove", "blockPlayerActionsInLaunch")
+		end
+
+		hook.Add("TTTModifyTargetedEntity", "demonicSheepTargetId", function()
+			if self.remoteTargetId then
+				return self:remoteTargetId()
+			else
+				hook.Remove("TTTModifyTargetedEntity", "demonicSheepTargetId")
+				return
+			end
+		end)
+
+		if SERVER then
+			hook.Add("StartCommand", "readPlayerMovement", function(ply, cmd)
+				if self.controlSheep then
+					self:controlSheep(ply, cmd)
+				else
+					hook.Remove("StartCommand", "readPlayerMovement")
+				end
+			end)
+		end
+	end
+
+end
+
+function SWEP:CalcView(ply, pos, ang, fov )
+	local ent = self.demonicSheepEnt
+	if not IsValid(ent) then return end
+	if self.demonicSheepEntInUse then
+		pos, ang = self:demonicSheepView(ent)
+	end
+	return pos, ang, fov
+end
+
+function SWEP:demonicSheepView(ent)
+	local pos = ent:GetPos()
+	local ang = ent:GetAngles()
+	pos = pos - ang:Forward() * 40 + ang:Up() * 25
+
+	return pos,ang
+end
+
+function SWEP:playDrawWeaponAnimation(bPlayDrawAnimation)
+	if bPlayDrawAnimation then
+		local vModel = self:GetOwner():GetViewModel()
+
+		self:SendWeaponAnim(ACT_VM_DRAW)
+
+		if not self:GetOwner():IsNPC() and self:GetOwner() and vModel then
+			self.resetSightsTimer = CurTime() + vModel:SequenceDuration()
+		end
+	else
+		self:SendWeaponAnim(ACT_VM_IDLE)
+	end
+end
+
+function SWEP:shouldDrawLocalPlayer()
+	if self.drawLocalPlayer then
+		return true
+	else
+		-- Let other addons be able to decide if it should be shown
+		return
+	end
+end
+
+function SWEP:launchSheep()
+	self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+
+	if not IsFirstTimePredicted() then return end
+	self.demonicSheepEntOut = true
+
+	-- Subtract 0.2 to initialize entity before animation is finished
+	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration() - 0.2
+
+	if SERVER then
+		local ent = ents.Create("ent_demonicsheep")
+
+		if (not IsValid(ent)) then return end
+
+		local ply = self:GetOwner()
+		ply:SetNWEntity("demonicSheepEnt", ent)
+		self.demonicSheepEnt = ent
+
+		ent:SetPos(ply:EyePos())
+		ent:SetAngles(ply:EyeAngles())
+		ent:SetOwner(ply)
+
+		ent:Spawn()
+		ent:Activate()
+
+	end
+end
+
+---
+-- This Section is all about Controlling the Sheep remotely and disabling Player actions
+
+function SWEP:getUpMove(cmd)
+	local jump = cmd:KeyDown(IN_JUMP)
+	local crouch = cmd:KeyDown(IN_DUCK)
+
+	return ((jump and 1) or 0) + ((crouch and -1) or 0)
+end
+
+function SWEP:controlSheep(ply, cmd)
+	local wep = ply:GetActiveWeapon()
+	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
+		local ent = self.demonicSheepEnt
+
+		-- Handle View Rotations
+		local mouseX = cmd:GetMouseX()
+		local mouseY = cmd:GetMouseY()
+		local newAngle = ent:GetAngles()
+		newAngle:RotateAroundAxis(Vector(0, 0, -1), mouseX * 360.0 / 8000.0)
+		newAngle.pitch = math.Clamp(newAngle.pitch + mouseY * 360.0 / 8000.0, -89, 89)
+		newAngle.roll = 0
+		ent:SetAngles(newAngle)
+
+		-- Handle Sheep Movement
+		local forwardMove = cmd:GetForwardMove()
+		local sideMove = cmd:GetSideMove()
+		local upMove = self:getUpMove(cmd) * 10000
+		local sprintMove = (cmd:KeyDown(IN_SPEED) and 1.5) or 1
+		local moveDirection = newAngle:Forward() * forwardMove + newAngle:Right() * sideMove + newAngle:Up() * upMove
+		moveDirection:Normalize()
+		ent:SetMoveDirection(moveDirection * sprintMove)
+	end
+end
+
+function SWEP:blockPlayerAnimations(ply, mv, cmd)
+	local wep = ply:GetActiveWeapon()
+	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
+		-- Stop all Button-Response-Animations of the player (Jumping, Crouching, ...)
+		mv:SetButtons(0)
+	end
+end
+
+function SWEP:blockPlayerMovement(ply, mv)
+	local wep = ply:GetActiveWeapon()
+	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
+		if not wep.lastOrigin then
+			self.lastOrigin = mv:GetOrigin()
+		end
+
+		if not wep.lastAngle then
+			self.lastAngle = mv:GetAngles()
+		end
+
+		-- Actually stop Movement and Sight-Control of the player
+		ply:SetPos(self.lastOrigin)
+		ply:SetEyeAngles(self.lastAngle)
+		return true
+	end
+	return
+end
+
+function SWEP:remoteTargetId()
+	local ent = self.demonicSheepEnt
+	if not IsValid(ent) or not self.demonicSheepEntInUse then return end
+
+	local pos, ang = self:demonicSheepView(ent)
+	local dir = ang:Forward()
+	filter = {ent}
+	ent, distance = targetid.FindEntityAlongView(pos, dir, filter)
+	return ent
+
+end
+
+function SWEP:sendSheepPosition()
+
+	-- Bone number 45 is the Demonicsheep_Breast 
+	local pos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
+	net.Start("launchDemonicSheep")
+	net.WriteVector(pos)
+	net.SendToServer()
+
+	-- Set Position predictionwise
+	local ent = self.demonicSheepEnt
+	ent:SetPos(pos)
+	ent:SetAngles(self:GetOwner():EyeAngles())
+	self:SendWeaponAnim(ACT_VM_IDLE)
+end
+
+function SWEP:receiveSheepPosition(len, ply)
+	if len and len < 1 then
+		print("ERROR: Empty Message received by " .. ply .. " for initializeSheepTimer in SWEP:receiveViewModelDemonicSheepPosition")
+		return
+	end
+	local pos = net.ReadVector()
+	local ent = self.demonicSheepEnt
+
+	if (not IsValid(ent)) then return end
+
+	ent:SetPos(pos)
+	ent:SetAngles(ply:EyeAngles())
+end
 
 --[[
+
+---
+--Some Feature-Examples:
+---
+
+hook.Add("StartCommand", "InterceptMovement", function(ply, cmd)
+	if ply:IsValid() and ply:GetActiveWeapon():GetClass() == "weapon_ttt_demonicsheep" then
+		local mouseX = cmd:GetMouseX()
+		mouseXMoves = mouseXMoves + mouseX
+		if useAlternateView then
+			local newAngle = cmd:GetViewAngles()
+			newAngle:RotateAroundAxis(Vector(0,0,-1), mouseX * 360.0 / 16000.0)
+			-- cmd:SetViewAngles(newAngle)
+			if mouseAnglesStart then
+				cmd:SetViewAngles(mouseAnglesStart)
+			end
+		end
+	end
+end)
+
+if CLIENT then
+	hook.Add("FinishMove", "InterceptMovement2", function(ply, mv)
+		if ply:IsValid() and  ply:GetActiveWeapon():GetClass() == "weapon_ttt_demonicsheep" then
+			if not mouseAnglesStart then
+				mouseAnglesStart = mv:GetAngles()
+			end
+			mouseAnglesCurrent = mv:GetAngles()
+		end
+	end)
+end
+
+---
+-- End of Feature Examples
+---
 
 if SERVER then
 	AddCSLuaFile()
@@ -21,56 +489,6 @@ local Demonicsheep_out = false
 local skipAnimationConV = GetConVar("ttt_DemnShp_SkipAnimation")
 local demnShpDurationConV = GetConVar("ttt_DemnShp_duration")
 
-SWEP.Base				= "weapon_tttbase"
-
-SWEP.PrintName			= "Demonic Sheep"
-SWEP.Author				= "ZenBreaker"
-SWEP.Instructions		= "Launch the Demonic Sheep, aim at your enemies and control them to drive them mad!"
-SWEP.Slot				= 1
-SWEP.SlotPos			= 2
-SWEP.Icon				= "vgui/ttt/demonicsheep/demonicsheep.png"
-SWEP.EquipMenuData		= {
-	type = "item_weapon",
-	desc = [ [
-	Launch the Demonicsheep and control your enemies!
-	Left-Click: Control Enemy
-	Right-Click: Change Mode
-	Reload: Exit Sheepmode
-	] ]
-						}
-
-
-SWEP.Spawnable			= false
-SWEP.AutoSpawnable		= false
-SWEP.LimitedStock		= true
-SWEP.AllowDrop			= true
-SWEP.HoldType			= "knife"
-SWEP.Kind				= WEAPON_EQUIP2
-SWEP.CanBuy				= { ROLE_TRAITOR }
-
-SWEP.DeploySpeed		= 0.01
-SWEP.Primary.Ammo		= "Demonicsheep"
---SWEP.Primary.Recoil	= 8
---SWEP.Primary.Damage	= 24
---SWEP.Primary.Delay	= 0.8
-SWEP.Primary.Cone		= 0
-SWEP.Primary.ClipSize	= 1
-SWEP.Primary.ClipMax	= 1
-SWEP.Primary.DefaultClip = 1
-SWEP.Primary.Automatic	= false
-
-SWEP.Secondary.Automatic = false
-SWEP.Secondary.Delay	= 5
-
-SWEP.ViewModelFlip  	= false
-SWEP.DrawCrosshair 		= false
-SWEP.UseHands			= true
-SWEP.ViewModelFOV		= 60
-SWEP.ViewModel			= "models/weapons/v_ttt_demonicsheep.mdl"
-SWEP.WorldModel			= "models/weapons/w_ttt_demonicsheep.mdl"
-SWEP.IronSightsPos		= Vector(2.773, 0, 0.846)
-SWEP.IronSightsAng		= Vector(-0.157, 0, 0)
-
 function TTT2_Simple_TargetId_Implementation(ent, distance)
 	local client = LocalPlayer()
 	local demonicsheep = client:GetActiveWeapon().Ent_demonicsheep
@@ -87,29 +505,8 @@ function TTT2_Simple_TargetId_Implementation(ent, distance)
 end
 
 --Temporary TargetId_Implementations until better solution integrated in TTT2 is found
-if ConVarExists("ttt_vote") then
-	hook.Add("HUDDrawTargetID", "demonicsheep_TargetID", hudtargetidimpl_totem)
-	print("\n------------TOTEM HudDrawTargetID-----------\n")
-elseif TTT2 then
-	--hook.Add("HUDDrawTargetID", "demonicsheep_TargetID", hudtargetidimpl_ttt2fixed)
-	--hook.Add("TTTModifyTargetedEntity", "demonicsheep_TargetID", hudtargetidimpl_ttt2Simple)
-	hook.Add("TTTModifyTargetedEntity", "demonicsheep_TargetID", TTT2_Simple_TargetId_Implementation)
-	print("\n------------TTT2 Simple HudDrawTargetID-----------\n")
-else
-	hook.Add("HUDDrawTargetID", "demonicsheep_TargetID", hudtargetidimpl_default)
-	print("\n------------Default HudDrawTargetID-----------\n")
-end
-
-
-local lastTimeCalled = CurTime()
-hook.Add("HUDDrawTargetID", "demonicsheep_TargetIDTEST", thishookgotcalled)
-function thishookgotcalled()
-	local currentTime = CurTime()
-	if currentTime - lastTimeCalled >= 5 then
-		lastTimeCalled = currentTime
-		print("This hook got called, yo. Current Time is " .. currentTime)
-	end
-end
+hook.Add("TTTModifyTargetedEntity", "demonicsheep_TargetID", TTT2_Simple_TargetId_Implementation)
+print("\n------------TTT2 Simple HudDrawTargetID-----------\n")
 
 hook.Add("SetupPlayerVisibility", "demonicsheep_AddToPVS", function(ply, viewent)
 	if IsValid(ply) and IsValid(ply:GetNWEntity("demonicsheep_entity")) then
@@ -484,44 +881,6 @@ local function ShadowedText(text, font, x, y, color, xalign, yalign)
 	draw.SimpleText(text, font, x + 2, y + 2, COLOR_BLACK, xalign, yalign)
 
 	draw.SimpleText(text, font, x, y, color, xalign, yalign)
-end
-
-if not TTT2 then
-
-	function SWEP:DrawHUD()
-		if IsValid(self.Ent_demonicsheep) and self.SheepStartTime >= 0 then
-			local y = ScrH() - 150 - 15
-			draw.RoundedBox(8, ScrW() / 2 - 170, y, 340, 150, Color(0, 0, 10, 200))
-
-			--draw boost
-			draw.RoundedBox( 8, ScrW() / 2 - 151, y + 59, 302, 27 , Color(20, 20, 5, 222) )
-			draw.RoundedBox( 8, ScrW() / 2 - 150, y + 60, (self.Boost / self.MaxBoost) * 300, 25 , Color(205, 155, 0, 255) )
-
-			ShadowedText("R - Boost", "HealthAmmo", ScrW() / 2, y + 60 + 12, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-			--draw last size change
-			local sizeChangeBar = math.min(CurTime() - self.LastSizeChange, 5) / 5.0
-
-			draw.RoundedBox( 8, ScrW() / 2 - 151, y + 109, 302, 27 , Color(20, 20, 5, 222) )
-			draw.RoundedBox( 8, ScrW() / 2 - 150, y + 110, sizeChangeBar * 300, 25 , Color(205, 155, 0, 255) )
-
-			if self.Minified then
-				ShadowedText("Right Click - Magnify", "HealthAmmo", ScrW() / 2, y + 110 + 12, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			else
-				ShadowedText("Right Click - Minify", "HealthAmmo", ScrW() / 2, y + 110 + 12, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			end
-
-			-- draw time left
-			self.TimeLeft = math.Truncate(30 - (CurTime() - self.SheepStartTime),0) + 1
-			--if self.TimeLeft > 10 or self.TimeLeft <= -1 then return end
-			if 30 - (CurTime() - self.SheepStartTime) < 0 then self.TimeLeft = 0 end
-
-			draw.RoundedBox(12, ScrW() / 2 - 21, y + 9, 42, 42 , Color(20, 20, 5, 222) )
-			draw.RoundedBox(12, ScrW() / 2 - 20, y + 10, 40, 40 , Color(200, 46, 46, 255) )
-			ShadowedText(tostring(self.TimeLeft), "HealthAmmo", ScrW() / 2, y + 30, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			return self.BaseClass.DrawHUD(self)
-		end
-	end
 end
 
 --]]
