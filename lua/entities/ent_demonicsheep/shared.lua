@@ -2,6 +2,139 @@ if SERVER then
 	AddCSLuaFile()
 end
 
+ENT.Author 					= "ZenBreaker"
+ENT.PrintName				= "Demonic Sheep"
+ENT.Base 					= "base_anim"
+ENT.Type 					= "anim"
+ENT.AutomaticFrameAdvance 	= true
+ENT.Spawnable 				= false
+ENT.RenderGroup 			= RENDERGROUP_OPAQUE
+
+function ENT:Initialize()
+	self:SetModel("models/weapons/ent_ttt_demonicsheep.mdl")
+	self:PhysicsInit(SOLID_VPHYSICS)
+	self:SetSolid(SOLID_VPHYSICS)
+	self:SetMoveType(MOVETYPE_VPHYSICS)
+	self:SetModelScale(1)
+	self:EnableRendering(false)
+
+	local phys = self:GetPhysicsObject()
+	phys:EnableGravity(false)
+
+	self.applyPhysics = nil
+	self.entryPushTime = 2
+	self.pushForce = 200
+	self.angleBeforeCol = nil
+	self.bumpBackTimer = CurTime()
+	self.bumpBackTime = 0.5
+	self.bumpBackDir = Vector(0, 0, 0)
+	self.moveDirection = Vector(0, 0, 0)
+end
+
+function ENT:Think()
+	if CLIENT then return end
+	if not self:GetOwner():IsValid() then self:Remove() end
+
+	if not self.applyPhysics then return end
+
+	local phys = self:GetPhysicsObject()
+	if not phys then return end
+
+	if phys:IsAsleep() then
+		phys:Wake()
+	else
+
+		-- Move sheep when entryPushTime got defined to have a little bit of movement at the start
+		if self.applyPhysics >= CurTime() then
+			local deltaTimeLeft = self.applyPhysics - CurTime()
+			phys:ApplyForceCenter(self:GetAngles():Forward() * self.pushForce * (deltaTimeLeft / self.entryPushTime))
+		end
+
+		-- Generally move the sheep in the set moveDirection
+		phys:ApplyForceCenter(self.moveDirection * self.pushForce)
+
+		-- If a Collision happened, then bounce back to avoid strange collision behaviour
+		if self.bumpBackTimer then
+			local deltaTimeLeft = self.bumpBackTimer - CurTime()
+			if deltaTimeLeft >= 0 then
+				phys:ApplyForceCenter(self.bumpBackDir * self.pushForce * 2 * (deltaTimeLeft / self.bumpBackTime))
+			else
+				self.bumpBackTimer = nil
+			end
+		end
+
+	end
+
+	-- Increase Think Rate to the Maximum available, aka the next frame
+	-- Reduces Lagging while observing the sheep
+	if SERVER then
+	self:NextThink(CurTime())
+	end
+
+	if CLIENT then
+	self:SetNextClientThink(CurTime())
+	end
+
+	return true
+end
+
+function ENT:EnableRendering(bRender)
+	if bRender then
+		self.RenderGroup = RENDERGROUP_OPAQUE
+	else
+		self.RenderGroup = RENDERGROUP_OTHER
+	end
+end
+
+function ENT:EnablePhysicsControl(bControl, entryPushTime)
+	self.entryPushTime = entryPushTime or 0
+	if bControl then
+		self.applyPhysics = CurTime() + self.entryPushTime
+	else
+		self.applyPhysics = nil
+	end
+end
+
+function ENT:SetMoveDirection(moveDirection)
+	self.moveDirection = moveDirection
+end
+
+-- ENTITY:PhysicsUpdate( PhysObj phys )
+function ENT:PhysicsUpdate(phys)
+	if self.angleBeforeCol then
+		self:SetAngles(self.angleBeforeCol)
+		self.angleBeforeCol = nil
+	end
+	phys:AddAngleVelocity(-phys:GetAngleVelocity())
+	return
+end
+
+-- ENTITY:PhysicsCollide( table colData, PhysObj collider )
+function ENT:PhysicsCollide(colData, collider)
+	self.angleBeforeCol = self:GetAngles()
+	self.bumpBackDir = -colData.HitNormal
+	self.bumpBackTimer = CurTime() + self.bumpBackTime
+	return
+end
+
+function ENT:OnTakeDamage(dmgInfo)
+	return
+end
+
+function ENT:UpdateTransmitState()
+	return TRANSMIT_ALWAYS
+end
+
+function ENT:OnRemove()
+	return
+end
+
+--[[
+
+if SERVER then
+	AddCSLuaFile()
+end
+
 ENT.Base 		= "base_anim"
 ENT.Type 		= "anim"
 ENT.AutomaticFrameAdvance = true
@@ -155,17 +288,17 @@ function ENT:Explode()
 	end
 	
 	timer.Create( "demonicsheep_explosion_delay", 1.5, 1, function()
-														if IsValid(self) && IsValid(self.Owner) && IsValid(self.Owner:GetActiveWeapon()) then
-															--print(self.Owner)
-															-- local newWeapon = self.Owner:GetWeapons()[2]
-															-- if (SERVER && IsValid(newWeapon)) then
-																-- self.Owner:SelectWeapon(newWeapon:GetClass())
-															-- end
-															self.Owner:SetNWBool("demonicsheep_removed", true)
-															self.Owner:GetActiveWeapon():Remove()
-															self:Remove()
-														end
-													end )
+		if IsValid(self) && IsValid(self.Owner) && IsValid(self.Owner:GetActiveWeapon()) then
+			--print(self.Owner)
+			-- local newWeapon = self.Owner:GetWeapons()[2]
+			-- if (SERVER && IsValid(newWeapon)) then
+				-- self.Owner:SelectWeapon(newWeapon:GetClass())
+			-- end
+			self.Owner:SetNWBool("demonicsheep_removed", true)
+			self.Owner:GetActiveWeapon():Remove()
+			self:Remove()
+		end
+	end )
 end
 
 
@@ -188,7 +321,9 @@ function ENT:Think()
 	end
 	--self.Owner:GetActiveWeapon():EmitSound("weapons/crossbow/hitbod1.wav")
 
-	if CLIENT then return true end
+	if CLIENT then 
+		return true 
+	end
 	self:SetMoveType(MOVETYPE_NONE)
 	--self:Remove()
 end
@@ -323,3 +458,5 @@ function ENT:Draw()
 	cam.Start3D()
 	cam.End3D()
 end
+
+--]]

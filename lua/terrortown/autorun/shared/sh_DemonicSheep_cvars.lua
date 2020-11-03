@@ -17,7 +17,7 @@ if file.Exists("terrortown/scripts/sh_convarutil_local.lua", "LUA") then
 	--Convar(ConvarGroup cg , Bool TTT2-Only, String ttt_Addon_Modifier, Bool/Int/Float DefaultValue, Table{} FCVAR_Flags, String Modifier Description, String Datatype ("bool","int","float"), Bool/Int/Float MinValue, Bool/Int/Float MaxValue, Int Decimalpoints)
 	--Example:
 	--Convar(cg, false, "ttt_asm_shift_speed_modifier", 2, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Movement speed multiplier during the aiming sequence", "float", 0.01, 8, 2)
-	
+
 	Convar(cg, false, "ttt_DemnShp_SkipAnimation", 0, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep play its attack Animation?", "bool", 0, 1, 0)
 	--Convar(cg, false, "ttt_satm_traitor", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should Traitors be able to buy the SATM?", "bool", 0, 1, 0)
 	Convar(cg, false, "ttt_DemnShp_duration", 30, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How long the duration of the Demonic Sheep should be?", "int", 1, 60, 0)
