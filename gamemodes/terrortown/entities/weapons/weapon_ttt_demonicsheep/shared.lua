@@ -390,104 +390,108 @@ function SWEP:launchSheep()
 	end
 end
 
----
 -- This Section is all about Controlling the Sheep remotely and disabling Player actions
 
-function SWEP:getUpMove(cmd)
-	local jump = cmd:KeyDown(IN_JUMP)
-	local crouch = cmd:KeyDown(IN_DUCK)
+	-- This extracts the combined direction of Jumping and Crouching for going up and down
+	function SWEP:getUpMove(cmd)
+		local jump = cmd:KeyDown(IN_JUMP)
+		local crouch = cmd:KeyDown(IN_DUCK)
 
-	return ((jump and 1) or 0) + ((crouch and -1) or 0)
-end
-
--- Control the sheep with your mouse and movekeys
--- Server only, because prediction for the sheep is still broken
-function SWEP:controlSheep(ply, cmd)
-	local wep = ply:GetActiveWeapon()
-	if SERVER and ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
-		local ent = self.demonicSheepEnt
-
-		-- Handle View Rotations
-		local mouseX = cmd:GetMouseX()
-		local mouseY = cmd:GetMouseY()
-		local newAngle = ent:GetAngles()
-		newAngle:RotateAroundAxis(Vector(0, 0, -1), mouseX * 360.0 / 8000.0)
-		newAngle.pitch = math.Clamp(newAngle.pitch + mouseY * 360.0 / 8000.0, -89, 89)
-		newAngle.roll = 0
-		ent:SetAngles(newAngle)
-
-		-- Handle Sheep Movement
-		local forwardMove = cmd:GetForwardMove()
-		local sideMove = cmd:GetSideMove()
-		local upMove = self:getUpMove(cmd) * 10000
-		local sprintMove = (cmd:KeyDown(IN_SPEED) and 1.5) or 1
-		local moveDirection = newAngle:Forward() * forwardMove + newAngle:Right() * sideMove + newAngle:Up() * upMove
-		moveDirection:Normalize()
-		ent:SetMoveDirection(moveDirection * sprintMove)
+		return ((jump and 1) or 0) + ((crouch and -1) or 0)
 	end
-end
 
--- By Hooking to the Move-Hook we disable the players movement and him looking around
-function SWEP:blockPlayerActions(ply, mv)
-	local wep = ply:GetActiveWeapon()
-	if ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
+	-- Control the sheep with your mouse and movekeys
+	-- Server only, because prediction for the sheep is still broken
+	function SWEP:controlSheep(ply, cmd)
+		local wep = ply:GetActiveWeapon()
+		if SERVER and ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
+			local ent = self.demonicSheepEnt
 
-		if not wep.lastAngle then
-			self.lastAngle = mv:GetAngles()
+			-- Handle View Rotations
+			local mouseX = cmd:GetMouseX()
+			local mouseY = cmd:GetMouseY()
+			local newAngle = ent:GetAngles()
+			newAngle:RotateAroundAxis(Vector(0, 0, -1), mouseX * 360.0 / 8000.0)
+			newAngle.pitch = math.Clamp(newAngle.pitch + mouseY * 360.0 / 8000.0, -89, 89)
+			newAngle.roll = 0
+			ent:SetAngles(newAngle)
+
+			-- Handle Sheep Movement
+			local forwardMove = cmd:GetForwardMove()
+			local sideMove = cmd:GetSideMove()
+			local upMove = self:getUpMove(cmd) * 10000
+			local sprintMove = (cmd:KeyDown(IN_SPEED) and 1.5) or 1
+			local moveDirection = newAngle:Forward() * forwardMove + newAngle:Right() * sideMove + newAngle:Up() * upMove
+			moveDirection:Normalize()
+			ent:SetMoveDirection(moveDirection * sprintMove)
 		end
-
-		-- Set MoveDataVelocity to 0, this disables all other physics interactions
-		mv:SetVelocity(Vector(0,0,0))
-		ply:SetEyeAngles(self.lastAngle)
-
-		-- Return true to block defaul Calculation of Movement-Data and stop Animations
-		return true
 	end
-	return
-end
 
--- To show Target IDs of players this is hooked to TTTModifyTargetedEntity and calculates the entity, the sheep can see
-function SWEP:remoteTargetId()
-	local ent = self.demonicSheepEnt
-	if not IsValid(ent) or not self.demonicSheepEntInUse then return end
+	-- By Hooking to the Move-Hook we disable the players movement and him looking around
+	function SWEP:blockPlayerActions(ply, mv)
+		local wep = ply:GetActiveWeapon()
+		if ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
 
-	local pos, ang = self:demonicSheepView(ent)
-	local dir = ang:Forward()
-	filter = {ent}
-	ent, distance = targetid.FindEntityAlongView(pos, dir, filter)
-	return ent
+			if not wep.lastAngle then
+				self.lastAngle = mv:GetAngles()
+			end
 
-end
+			-- Set MoveDataVelocity to 0, this disables all other physics interactions
+			mv:SetVelocity(Vector(0,0,0))
+			ply:SetEyeAngles(self.lastAngle)
 
--- As Viewmodels are only available to the player, we send the position of the sheep in the animation frame to the server
-function SWEP:sendSheepPosition()
-	-- Bone number 45 is the Demonicsheep_Breast 
-	local pos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
-	net.Start("launchDemonicSheep")
-	net.WriteVector(pos)
-	net.SendToServer()
-
-	-- Set Position predictionwise
-	local ent = self.demonicSheepEnt
-	ent:SetPos(pos)
-	ent:SetAngles(self:GetOwner():EyeAngles())
-	self:SendWeaponAnim(ACT_VM_IDLE)
-end
-
--- Here we receive the Sheep's Position, that got sent by the client, containing the animationsheep's Position
-function SWEP:receiveSheepPosition(len, ply)
-	if len and len < 1 then
-		print("ERROR: Empty Message received by " .. ply .. " for initializeSheepTimer in SWEP:receiveViewModelDemonicSheepPosition")
+			-- Return true to block defaul Calculation of Movement-Data and stop Animations
+			return true
+		end
 		return
 	end
-	local pos = net.ReadVector()
-	local ent = self.demonicSheepEnt
 
-	if (not IsValid(ent)) then return end
+	-- To show Target IDs of players this is hooked to TTTModifyTargetedEntity and calculates the entity, the sheep can see
+	function SWEP:remoteTargetId()
+		local ent = self.demonicSheepEnt
+		if not IsValid(ent) or not self.demonicSheepEntInUse then return end
 
-	ent:SetPos(pos)
-	ent:SetAngles(ply:EyeAngles())
-end
+		local pos, ang = self:demonicSheepView(ent)
+		local dir = ang:Forward()
+		filter = {ent}
+		ent, distance = targetid.FindEntityAlongView(pos, dir, filter)
+		return ent
+
+	end
+--
+
+-- This Section is for the sheep Position inside the Animation, when the sheep is launched
+
+	-- As Viewmodels are only available to the player, we send the position of the sheep in the animation frame to the server
+	function SWEP:sendSheepPosition()
+		-- Bone number 45 is the Demonicsheep_Breast 
+		local pos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
+		net.Start("launchDemonicSheep")
+		net.WriteVector(pos)
+		net.SendToServer()
+
+		-- Set Position predictionwise
+		local ent = self.demonicSheepEnt
+		ent:SetPos(pos)
+		ent:SetAngles(self:GetOwner():EyeAngles())
+		self:SendWeaponAnim(ACT_VM_IDLE)
+	end
+
+	-- Here we receive the Sheep's Position, that got sent by the client, containing the animationsheep's Position
+	function SWEP:receiveSheepPosition(len, ply)
+		if len and len < 1 then
+			print("ERROR: Empty Message received by " .. ply .. " for initializeSheepTimer in SWEP:receiveViewModelDemonicSheepPosition")
+			return
+		end
+		local pos = net.ReadVector()
+		local ent = self.demonicSheepEnt
+
+		if (not IsValid(ent)) then return end
+
+		ent:SetPos(pos)
+		ent:SetAngles(ply:EyeAngles())
+	end
+--
 
 -- This is a Helper-Function to get the Sequence Duration of the Viewmodel with the input sequence ID
 function SWEP:GetViewModelSequenceDuration(seqid)
