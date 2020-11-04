@@ -72,12 +72,14 @@ function SWEP:Initialize()
 	self.demonicSheepEnt = nil
 	self.demonicSheepEntOut = false
 	self.demonicSheepEntInUse = false
+	self.allowViewSwitching = false
 
 	self.allowHolster = true
 	self.holsterSheepTimer = nil
 	self.holsterSheepAnimation = true
 	self.holsterToWep = self
 	self.isForceHolstered = false
+
 	self.resetSightsTimer = nil
 	self.initializeSheepTimer = nil
 	self.enableControlSheepTimer = nil
@@ -86,6 +88,16 @@ function SWEP:Initialize()
 	self.lastAngle = nil
 	self.lastOrigin = nil
 
+	-- default value for Primary Attack Animation
+	self.primaryAttDuration = 1
+
+	self.sheepToLocalOffset = nil
+	self.sheepFinalOffset = nil
+	self.sheepViewDistanceForward = 40
+	self.sheepViewDistanceUp = 25
+
+	-- Network Hold Type to all
+	self:SetHoldType("pistol")
 	if SERVER then
 		net.Receive("launchDemonicSheep", function(len, ply) self:receiveSheepPosition(len, ply) end)
 	end
@@ -150,7 +162,6 @@ function SWEP:PrimaryAttack()
 	else
 		self:launchSheep()
 		self.allowHolster = false
-
 		if CLIENT then
 			hook.Add("CreateMove", "blockPlayerActionsInLaunch", function(cmd)
 				cmd:ClearMovement()
@@ -158,20 +169,11 @@ function SWEP:PrimaryAttack()
 			end)
 		end
 
-		hook.Add("SetupMove", "blockPlayerAnimations", function(ply, mv, cmd)
-			if self.blockPlayerAnimations then
-				self:blockPlayerAnimations(ply, mv, cmd)
+		hook.Add("Move", "blockPlayerActions", function(ply, mv)
+			if self.blockPlayerActions then
+				return self:blockPlayerActions(ply, mv)
 			else
-				hook.Remove("SetupMove", "blockPlayerAnimations")
-			end
-		end)
-
-		hook.Add("FinishMove", "blockPlayerMovement", function(ply, mv)
-			if self.blockPlayerMovement then
-				return self:blockPlayerMovement(ply, mv)
-			else
-				hook.Remove("FinishMove", "blockPlayerMovement")
-				return
+				hook.Remove("Move", "blockPlayerActions")
 			end
 		end)
 
@@ -179,11 +181,31 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:SecondaryAttack()
-	self:SetNextSecondaryFire(CurTime() + 0.1)
+	self:SetNextSecondaryFire(CurTime() + 1)
 
 	if not IsFirstTimePredicted() then return end
-
 	print("\nMarker.")
+	if not self.allowViewSwitching then return end
+	self.demonicSheepEntInUse = not self.demonicSheepEntInUse
+	self.allowHolster = not self.allowHolster
+	self.drawLocalPlayer = not self.drawLocalPlayer
+
+	if self.lastOrigin then
+		self.lastOrigin = nil
+	end
+
+	if self.lastAngle then
+		self.lastAngle = nil
+	end
+
+	if self.allowHolster then
+		self:SetHoldType("normal")
+		-- Make sure, that the sheep doesn't fly away, when a key was pressed while switching Views
+		self.demonicSheepEnt:SetMoveDirection(Vector(0, 0, 0))
+	else
+		self:SetHoldType("magic")
+	end
+
 end
 
 function SWEP:Reload()
@@ -195,6 +217,7 @@ function SWEP:Think()
 	if not self.demonicSheepEntOut and not self.demonicSheepEntInUse and self.resetSightsTimer and self.resetSightsTimer <= CurTime() then
 		self.resetSightsTimer = nil
 		self:SendWeaponAnim(ACT_VM_IDLE)
+		self.primaryAttDuration = self:GetViewModelSequenceDuration(ACT_VM_PRIMARYATTACK)
 	end
 
 	-- Allowing to holster after playing its Animation
@@ -213,8 +236,8 @@ function SWEP:Think()
 		end
 	end
 
-	-- Initializing the demonic sheep after animation got played
-	if self.initializeSheepTimer and self.initializeSheepTimer <= CurTime() then
+	-- Initializing the demonic sheep before animation got fully played to have it available for Control
+	if self.initializeSheepTimer and self.initializeSheepTimer <= CurTime() + 0.2 then
 		if CLIENT then
 			self.demonicSheepEnt = self:GetOwner():GetNWEntity("demonicSheepEnt")
 		end
@@ -229,11 +252,19 @@ function SWEP:Think()
 		end
 	end
 
+	-- Shortly after Initialization actually show the sheep and enable Controls
 	if self.enableControlSheepTimer and self.enableControlSheepTimer <= CurTime() and IsValid(self.demonicSheepEnt) then
 		self.enableControlSheepTimer = nil
 
 		self.demonicSheepEntInUse = true
+		self.allowViewSwitching = true
+
+		-- To the outside you don't hold a sheep anymore and magically do stuff
+		-- Clientside you see the sheep to remember you, that you control the sheep
 		self:SetNoDraw(true)
+		self:SetHoldType("magic")
+		self:SendWeaponAnim(ACT_VM_IDLE)
+
 		self.drawLocalPlayer = true
 
 		self.demonicSheepEnt:EnableRendering(true)
@@ -251,32 +282,59 @@ function SWEP:Think()
 			end
 		end)
 
-		if SERVER then
-			hook.Add("StartCommand", "readPlayerMovement", function(ply, cmd)
-				if self.controlSheep then
-					self:controlSheep(ply, cmd)
-				else
-					hook.Remove("StartCommand", "readPlayerMovement")
-				end
-			end)
-		end
+		hook.Add("StartCommand", "readPlayerMovement", function(ply, cmd)
+			if self.controlSheep then
+				self:controlSheep(ply, cmd)
+			else
+				hook.Remove("StartCommand", "readPlayerMovement")
+			end
+		end)
 	end
 
 end
 
+function SWEP:ShouldDrawViewModel()
+	if self.allowViewSwitching then
+		return false
+	else
+		return true
+	end
+end
+
 function SWEP:CalcView(ply, pos, ang, fov )
-	local ent = self.demonicSheepEnt
-	if not IsValid(ent) then return end
 	if self.demonicSheepEntInUse then
-		pos, ang = self:demonicSheepView(ent)
+		local ent = self.demonicSheepEnt
+		if IsValid(ent) then
+			pos, ang = self:demonicSheepView(ent)
+		end
+	elseif (self.initializeSheepTimer and self.initializeSheepTimer >= CurTime())
+			or (self.enableControlSheepTimer and self.enableControlSheepTimer >= CurTime()) then
+			pos, ang = self:followSheepAnimation(pos, ang)
+	elseif self.sheepToLocalOffset then
+		self.sheepToLocalOffset = nil
 	end
 	return pos, ang, fov
+end
+
+-- This does a simple followup of the sheep while the animation runs
+function SWEP:followSheepAnimation(pos, ang)
+	local sheepPos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
+
+	if not self.sheepToLocalOffset then
+		self.sheepToLocalOffset = sheepPos - pos
+		self.sheepFinalOffset = ang:Forward() * self.sheepViewDistanceForward * 2 - ang:Up() * self.sheepViewDistanceUp * 0.5
+	end
+	local deltaTimeLeft = (self.initializeSheepTimer or self.enableControlSheepTimer) - CurTime()
+	local interpValue = deltaTimeLeft / self.primaryAttDuration
+	pos = sheepPos - (self.sheepToLocalOffset * interpValue + self.sheepFinalOffset * (1 - interpValue))
+
+	return pos, ang
 end
 
 function SWEP:demonicSheepView(ent)
 	local pos = ent:GetPos()
 	local ang = ent:GetAngles()
-	pos = pos - ang:Forward() * 40 + ang:Up() * 25
+	pos = pos - ang:Forward() * self.sheepViewDistanceForward + ang:Up() * self.sheepViewDistanceUp
 
 	return pos,ang
 end
@@ -310,8 +368,8 @@ function SWEP:launchSheep()
 	if not IsFirstTimePredicted() then return end
 	self.demonicSheepEntOut = true
 
-	-- Subtract 0.2 to initialize entity before animation is finished
-	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration() - 0.2
+	-- Initialize entity after animation is finished
+	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration()
 
 	if SERVER then
 		local ent = ents.Create("ent_demonicsheep")
@@ -342,9 +400,11 @@ function SWEP:getUpMove(cmd)
 	return ((jump and 1) or 0) + ((crouch and -1) or 0)
 end
 
+-- Control the sheep with your mouse and movekeys
+-- Server only, because prediction for the sheep is still broken
 function SWEP:controlSheep(ply, cmd)
 	local wep = ply:GetActiveWeapon()
-	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
+	if SERVER and ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
 		local ent = self.demonicSheepEnt
 
 		-- Handle View Rotations
@@ -367,33 +427,26 @@ function SWEP:controlSheep(ply, cmd)
 	end
 end
 
-function SWEP:blockPlayerAnimations(ply, mv, cmd)
+-- By Hooking to the Move-Hook we disable the players movement and him looking around
+function SWEP:blockPlayerActions(ply, mv)
 	local wep = ply:GetActiveWeapon()
-	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
-		-- Stop all Button-Response-Animations of the player (Jumping, Crouching, ...)
-		mv:SetButtons(0)
-	end
-end
-
-function SWEP:blockPlayerMovement(ply, mv)
-	local wep = ply:GetActiveWeapon()
-	if ply:IsValid() and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
-		if not wep.lastOrigin then
-			self.lastOrigin = mv:GetOrigin()
-		end
+	if ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
 
 		if not wep.lastAngle then
 			self.lastAngle = mv:GetAngles()
 		end
 
-		-- Actually stop Movement and Sight-Control of the player
-		ply:SetPos(self.lastOrigin)
+		-- Set MoveDataVelocity to 0, this disables all other physics interactions
+		mv:SetVelocity(Vector(0,0,0))
 		ply:SetEyeAngles(self.lastAngle)
+
+		-- Return true to block defaul Calculation of Movement-Data and stop Animations
 		return true
 	end
 	return
 end
 
+-- To show Target IDs of players this is hooked to TTTModifyTargetedEntity and calculates the entity, the sheep can see
 function SWEP:remoteTargetId()
 	local ent = self.demonicSheepEnt
 	if not IsValid(ent) or not self.demonicSheepEntInUse then return end
@@ -406,8 +459,8 @@ function SWEP:remoteTargetId()
 
 end
 
+-- As Viewmodels are only available to the player, we send the position of the sheep in the animation frame to the server
 function SWEP:sendSheepPosition()
-
 	-- Bone number 45 is the Demonicsheep_Breast 
 	local pos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
 	net.Start("launchDemonicSheep")
@@ -421,6 +474,7 @@ function SWEP:sendSheepPosition()
 	self:SendWeaponAnim(ACT_VM_IDLE)
 end
 
+-- Here we receive the Sheep's Position, that got sent by the client, containing the animationsheep's Position
 function SWEP:receiveSheepPosition(len, ply)
 	if len and len < 1 then
 		print("ERROR: Empty Message received by " .. ply .. " for initializeSheepTimer in SWEP:receiveViewModelDemonicSheepPosition")
@@ -435,6 +489,12 @@ function SWEP:receiveSheepPosition(len, ply)
 	ent:SetAngles(ply:EyeAngles())
 end
 
+-- This is a Helper-Function to get the Sequence Duration of the Viewmodel with the input sequence ID
+function SWEP:GetViewModelSequenceDuration(seqid)
+	local vModel = self:GetOwner():GetViewModel()
+	local seq = vModel:SelectWeightedSequence(seqid)
+	return  vModel:SequenceDuration(seq) or 0
+end
 --[[
 
 ---

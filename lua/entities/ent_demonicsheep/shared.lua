@@ -32,7 +32,7 @@ function ENT:Initialize()
 end
 
 function ENT:Think()
-	if CLIENT then return end
+	if CLIENT then return end -- Normally you would do the prediction here too, but somehow the entities differ and you get a big stutter while you are in Sheep Control
 	if not self:GetOwner():IsValid() then self:Remove() end
 
 	if not self.applyPhysics then return end
@@ -58,7 +58,9 @@ function ENT:Think()
 			local deltaTimeLeft = self.bumpBackTimer - CurTime()
 			if deltaTimeLeft >= 0 then
 				phys:ApplyForceCenter(self.bumpBackDir * self.pushForce * 2 * (deltaTimeLeft / self.bumpBackTime))
+				self:SetAngles(self:GetAngles()) -- Stupid Trick, that makes the physicsForces act "normal", when you don't control it
 			else
+				phys:SetVelocity(Vector(0,0,0)) -- Stupid Trick, set the velocity additionally to zero, so that it doesn't float to the moon, when you don't control it
 				self.bumpBackTimer = nil
 			end
 		end
