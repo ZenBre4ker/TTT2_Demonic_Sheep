@@ -29,6 +29,35 @@ function ENT:Initialize()
 	self.bumpBackTime = 0.5
 	self.bumpBackDir = Vector(0, 0, 0)
 	self.moveDirection = Vector(0, 0, 0)
+
+	-- Add a hook, so that everything gets rendered around that entity
+	hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS", function(ply, viewent)
+		if IsValid(ply) and IsValid(ply:GetNWEntity("demonicSheepEnt")) then
+			local sheep = ply:GetNWEntity("demonicSheepEnt")
+			AddOriginToPVS(sheep:GetPos())
+		end
+	end)
+
+	-- Add a Target ID to the Demonic Sheep
+	hook.Add("TTTRenderEntityInfo", "demonicSheepEntityInfos", function(tData)
+		local ent = tData:GetEntity()
+		if ent ~= self then return end
+		-- enable targetID rendering
+		tData:EnableText()
+		-- add title and subtitle to the focused ent
+		local h_string, h_color = util.HealthToString(ent:Health(), ent:GetMaxHealth())
+
+		tData:SetTitle(
+		"Demonic Sheep",
+		COLOR_RED,
+		{}
+		)
+
+		tData:SetSubtitle(
+			h_string,
+			h_color
+		)
+	end)
 end
 
 function ENT:Think()
@@ -128,6 +157,7 @@ function ENT:UpdateTransmitState()
 end
 
 function ENT:OnRemove()
+	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS")
 	return
 end
 
