@@ -9,18 +9,30 @@ ENT.Type 					= "anim"
 ENT.AutomaticFrameAdvance 	= true
 ENT.Spawnable 				= false
 ENT.RenderGroup 			= RENDERGROUP_OPAQUE
+ENT.Model 					= Model("models/weapons/ent_ttt_demonicsheep.mdl")
+
+-- this is used to remove the SWEP if the sheep dies
+ENT.demonicSheepSwep		= nil
 
 function ENT:Initialize()
-	self:SetModel("models/weapons/ent_ttt_demonicsheep.mdl")
-	self:PhysicsInit(SOLID_VPHYSICS)
-	self:SetSolid(SOLID_VPHYSICS)
-	self:SetMoveType(MOVETYPE_VPHYSICS)
-	self:SetModelScale(1)
+	self:SetModel(self.Model)
+	if SERVER then
+		self:PhysicsInit(SOLID_VPHYSICS)
+		self:SetMoveType(MOVETYPE_VPHYSICS)
+		self:SetSolid(SOLID_OBB) -- Needs to be an OBB as VPHYSICS don't work with multiple bones, for detailed physics spawn a ragdoll with the sheep Model or or spawn several OBBs for each physicsbone
+		self:SetCollisionGroup(COLLISION_GROUP_NONE)
+
+		local phys = self:GetPhysicsObject()
+		phys:EnableGravity(false)
+
+		self:SetHealth(100)
+		self:SetMaxHealth(100)
+		self:DeleteOnRemove(self.demonicSheepSwep)
+	end
+
 	self:EnableRendering(false)
 
-	local phys = self:GetPhysicsObject()
-	phys:EnableGravity(false)
-
+	self.beganFlying = false
 	self.applyPhysics = nil
 	self.entryPushTime = 2
 	self.pushForce = 200
@@ -29,6 +41,8 @@ function ENT:Initialize()
 	self.bumpBackTime = 0.5
 	self.bumpBackDir = Vector(0, 0, 0)
 	self.moveDirection = Vector(0, 0, 0)
+
+	self.nextTime = CurTime()
 
 	-- Add a hook, so that everything gets rendered around that entity
 	hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS", function(ply, viewent)
@@ -40,38 +54,31 @@ function ENT:Initialize()
 
 	-- Add a Target ID to the Demonic Sheep
 	hook.Add("TTTRenderEntityInfo", "demonicSheepEntityInfos", function(tData)
-		local ent = tData:GetEntity()
-		if ent ~= self then return end
-		-- enable targetID rendering
-		tData:EnableText()
-		-- add title and subtitle to the focused ent
-		local h_string, h_color = util.HealthToString(ent:Health(), ent:GetMaxHealth())
-
-		tData:SetTitle(
-		"Demonic Sheep",
-		COLOR_RED,
-		{}
-		)
-
-		tData:SetSubtitle(
-			h_string,
-			h_color
-		)
+		if self.RenderEntityInfo then
+			self:RenderEntityInfo(tData)
+		else
+			hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos")
+		end
 	end)
 end
 
 function ENT:Think()
 	if CLIENT then return end -- Normally you would do the prediction here too, but somehow the entities differ and you get a big stutter while you are in Sheep Control
-	if not self:GetOwner():IsValid() then self:Remove() end
+	if not IsValid(self.demonicSheepSwep) then self:Remove() end
 
 	if not self.applyPhysics then return end
 
+	if not self.beganFlying then
+		self.beganFlying = true
+		self:ResetSequence(self:LookupSequence(ACT_VM_PRIMARYATTACK))
+	end
 	local phys = self:GetPhysicsObject()
 	if not phys then return end
 
 	if phys:IsAsleep() then
 		phys:Wake()
 	else
+		self:SetAngles(self:GetAngles()) -- Stupid Trick, that makes the physicsForces act "normal", when you don't control it
 
 		-- Move sheep when entryPushTime got defined to have a little bit of movement at the start
 		if self.applyPhysics >= CurTime() then
@@ -87,9 +94,8 @@ function ENT:Think()
 			local deltaTimeLeft = self.bumpBackTimer - CurTime()
 			if deltaTimeLeft >= 0 then
 				phys:ApplyForceCenter(self.bumpBackDir * self.pushForce * 2 * (deltaTimeLeft / self.bumpBackTime))
-				self:SetAngles(self:GetAngles()) -- Stupid Trick, that makes the physicsForces act "normal", when you don't control it
 			else
-				phys:SetVelocity(Vector(0,0,0)) -- Stupid Trick, set the velocity additionally to zero, so that it doesn't float to the moon, when you don't control it
+				phys:SetVelocity(Vector(0,0,0))
 				self.bumpBackTimer = nil
 			end
 		end
@@ -137,7 +143,6 @@ function ENT:PhysicsUpdate(phys)
 		self.angleBeforeCol = nil
 	end
 	phys:AddAngleVelocity(-phys:GetAngleVelocity())
-	return
 end
 
 -- ENTITY:PhysicsCollide( table colData, PhysObj collider )
@@ -145,11 +150,28 @@ function ENT:PhysicsCollide(colData, collider)
 	self.angleBeforeCol = self:GetAngles()
 	self.bumpBackDir = -colData.HitNormal
 	self.bumpBackTimer = CurTime() + self.bumpBackTime
-	return
 end
 
 function ENT:OnTakeDamage(dmgInfo)
-	return
+	local damage = dmgInfo:GetDamage()
+	if damage <= 0 then return end
+
+	newHealth = self:Health() - damage
+	if newHealth <= 0 then
+		self:Remove()
+	else
+		self:SetHealth(newHealth)
+	end
+
+	-- start painting blood decals
+	util.StartBleeding(self, damage, 5)
+
+	-- Apply damage Forces as if you would hit a wall over time
+	local damageDir = dmgInfo:GetDamageForce() 
+	damageDir:Normalize()
+	self.bumpBackDir = damageDir
+	self.bumpBackTimer = CurTime() + self.bumpBackTime
+
 end
 
 function ENT:UpdateTransmitState()
@@ -158,9 +180,31 @@ end
 
 function ENT:OnRemove()
 	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS")
+	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos")
 	return
 end
 
+function ENT:RenderEntityInfo(tData)
+	local ent = tData:GetEntity()
+	if ent ~= self then return end
+
+	-- enable targetID rendering
+	tData:EnableText()
+
+	-- add title and subtitle to the focused ent
+	local h_string, h_color = util.HealthToString(ent:Health(), ent:GetMaxHealth())
+
+	local roleColor = COLOR_WHITE
+	if IsValid(self:GetOwner()) then
+		roleColor = self:GetOwner():GetRoleColor()
+	end
+	tData:SetTitle(self.PrintName,roleColor)
+
+	tData:SetSubtitle(
+		h_string,
+		h_color
+	)
+end
 --[[
 
 if SERVER then
