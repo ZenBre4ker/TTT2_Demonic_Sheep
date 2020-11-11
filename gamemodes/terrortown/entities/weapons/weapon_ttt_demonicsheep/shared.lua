@@ -29,12 +29,12 @@ SWEP.DeploySpeed		= 0.01
 SWEP.Primary.Ammo		= "Demonicsheep"
 SWEP.Primary.Recoil		= 0
 SWEP.Primary.Damage		= 0
-SWEP.Primary.Delay		= 0.0
+SWEP.Primary.Delay		= 0.5
 SWEP.Primary.Cone		= 0
 SWEP.Primary.ClipSize	= 1
 SWEP.Primary.ClipMax	= 1
 SWEP.Primary.DefaultClip = 1
-SWEP.Primary.Automatic	= true -- to enable perma activation
+SWEP.Primary.Automatic	= true -- to enable easier enemy control
 
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Delay	= 5
@@ -63,21 +63,15 @@ if CLIENT and file.Exists("terrortown/scripts/targetid_implementations.lua", "LU
 	include("terrortown/scripts/targetid_implementations.lua")
 end
 
--- All local used variables
-local demonicSheepSwep
-
 function SWEP:SetupDataTables()
-
 	self:NetworkVar( "Entity", 0, "demonicSheepEnt" )
 	self:NetworkVar( "Bool", 0, "demonicSheepEntOut" )
 	self:NetworkVar( "Bool", 1, "demonicSheepEntInUse" )
 	self:NetworkVar( "Int", 0, "currentControlType" )
-
 end
 
 -- All SWEP functions
 function SWEP:Initialize()
-	demonicSheepSwep = self
 
 	self.demonicSheepEnt = nil
 	self.demonicSheepEntOut = false
@@ -111,10 +105,10 @@ function SWEP:Initialize()
 	-- Available Controles are {"ControlType", duration}
 	self.availableControls = {
 		{"Attack", 0.5},
-		{"Drop Weapon", 0.1},
-		{"Holster Weapon", 0.1},
-		{"Move Forward", 0.5},
-		{"Move Backward", 0.5},
+		{"Drop Weapon", 0.2},
+		{"Holster Weapon", 0.2},
+		{"Move Forward", 1},
+		{"Move Backward", 1},
 	}
 
 	self.currentControlType = 4
@@ -222,7 +216,7 @@ function SWEP:OnRemove()
 end
 
 function SWEP:PrimaryAttack()
-	self:SetNextPrimaryFire(CurTime() + 0.5)
+	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
 	if self.demonicSheepEntOut then
 		-- Control Sheep, don't launch it again
 		if not self.demonicSheepEntInUse then return end
@@ -600,7 +594,6 @@ function SWEP:manipulatePlayer(ply, cmd)
 			ply:DropWeapon()
 		elseif controlKey == "Holster Weapon" then
 			local changeToSwep = ply:GetWeapons()[2]
-			print(WEPS.GetClass(changeToSwep))
 			if CLIENT then
 				input.SelectWeapon(changeToSwep)
 			end
@@ -610,10 +603,10 @@ function SWEP:manipulatePlayer(ply, cmd)
 			end
 		elseif controlKey == "Move Forward" then
 			cmd:SetButtons(cmd:GetButtons() + IN_FORWARD)
-			cmd:SetForwardMove(100000)
+			cmd:SetForwardMove(cmd:GetForwardMove() + 9000)
 		elseif controlKey == "Move Backward" then
 			cmd:SetButtons(cmd:GetButtons() + IN_BACK)
-			cmd:SetForwardMove(-100000)
+			cmd:SetForwardMove(cmd:GetForwardMove() - 9000)
 		end
 	else
 		self.controlStructure[ply] = nil
