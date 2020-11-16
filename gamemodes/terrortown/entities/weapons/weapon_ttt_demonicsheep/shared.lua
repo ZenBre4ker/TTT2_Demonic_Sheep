@@ -53,6 +53,7 @@ if SERVER then
 	AddCSLuaFile()
 	util.AddNetworkString("launchDemonicSheep")
 	util.AddNetworkString("controlPlayer")
+	util.AddNetworkString("demonicSheepMessage")
 	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
 		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
 	end
@@ -111,9 +112,17 @@ function SWEP:Initialize()
 		{"Move Backward", 1},
 	}
 
-	self.currentControlType = 4
+	self.currentControlType = 1
 
 	self:SetHoldType("pistol")
+
+	if CLIENT then
+		if self.AddTTT2HUDHelp then
+			self:AddTTT2HUDHelp("Control Target", "Change Controlmode")
+			self:AddHUDHelpLine("Switch Sheep/Player Control", Key("+reload", "R"))
+		end
+		net.Receive("demonicSheepMessage", function (len, ply) self:displayCurrentControl() end)
+	end
 
 	if SERVER then
 		net.Receive("launchDemonicSheep", function(len, ply) self:receiveSheepPosition(len, ply) end)
@@ -269,11 +278,22 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:SecondaryAttack()
-	self:SetNextSecondaryFire(CurTime() + 1)
+	self:SetNextSecondaryFire(CurTime() + 0.1)
 
 	if not IsFirstTimePredicted() then return end
-	print("\nMarker.")
+	self.currentControlType = 1 + math.fmod(self.currentControlType, #self.availableControls)
+
+	-- To be sure, let the server send its controltype to the player
+	if CLIENT then return end
+	self:displayCurrentControl()
+end
+
+function SWEP:Reload()
+	if self.nextReload >= CurTime() then return end
+	if not IsFirstTimePredicted() then return end
 	if not self.allowViewSwitching then return end
+	self.nextReload = CurTime() + 0.3
+
 	self.demonicSheepEntInUse = not self.demonicSheepEntInUse
 	self.allowHolster = not self.allowHolster
 	self.drawLocalPlayer = not self.drawLocalPlayer
@@ -294,14 +314,6 @@ function SWEP:SecondaryAttack()
 		self:SetHoldType("magic")
 	end
 
-end
-
-function SWEP:Reload()
-	if self.nextReload >= CurTime() then return end
-	if not IsFirstTimePredicted() then return end
-	self.nextReload = CurTime() + 0.3
-	self.currentControlType = 1 + math.fmod(self.currentControlType, #self.availableControls)
-	print("Changed to Controlmode " .. self.availableControls[self.currentControlType][1])
 end
 
 function SWEP:Think()
@@ -550,6 +562,7 @@ end
 
 			-- Handle Sheep Movement
 			local forwardMove = cmd:GetForwardMove()
+			--print("\nSheep control Forward: " .. cmd:GetForwardMove())
 			local sideMove = cmd:GetSideMove()
 			local upMove = self:getUpMove(cmd) * 10000
 			local sprintMove = (cmd:KeyDown(IN_SPEED) and 1.5) or 1
@@ -586,7 +599,6 @@ function SWEP:manipulatePlayer(ply, cmd)
 
 	local controlList = self.controlStructure[ply]
 	if controlList[2] <= CurTime() and controlList[3]  >= CurTime() - 0.5 then
-
 		local controlKey = controlList[1]
 		if controlKey == "Attack" then
 			cmd:SetButtons(cmd:GetButtons() + IN_ATTACK)
@@ -603,10 +615,10 @@ function SWEP:manipulatePlayer(ply, cmd)
 			end
 		elseif controlKey == "Move Forward" then
 			cmd:SetButtons(cmd:GetButtons() + IN_FORWARD)
-			cmd:SetForwardMove(cmd:GetForwardMove() + 9000)
+			cmd:SetForwardMove(cmd:GetForwardMove() + 9950)
 		elseif controlKey == "Move Backward" then
 			cmd:SetButtons(cmd:GetButtons() + IN_BACK)
-			cmd:SetForwardMove(cmd:GetForwardMove() - 9000)
+			cmd:SetForwardMove(cmd:GetForwardMove() - 9950)
 		end
 	else
 		self.controlStructure[ply] = nil
@@ -681,6 +693,18 @@ end
 		ent:SetAngles(ply:EyeAngles())
 	end
 --
+
+function SWEP:displayCurrentControl()
+	if SERVER then
+		net.Start("demonicSheepMessage")
+		net.WriteInt(self.currentControlType,4)
+		net.Send(self:GetOwner())
+	end
+	if CLIENT then
+		local controlMode = net.ReadInt(4)
+		chat.AddText("Control Mode: ", COLOR_RED, self.availableControls[controlMode][1])
+	end
+end
 
 -- This is a Helper-Function to get the Sequence Duration of the Viewmodel with the input sequence ID
 function SWEP:GetViewModelSequenceDuration(seqid)
