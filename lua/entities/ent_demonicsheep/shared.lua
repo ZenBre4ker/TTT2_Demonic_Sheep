@@ -167,7 +167,7 @@ function ENT:OnTakeDamage(dmgInfo)
 	util.StartBleeding(self, damage, 5)
 
 	-- Apply damage Forces as if you would hit a wall over time
-	local damageDir = dmgInfo:GetDamageForce() 
+	local damageDir = dmgInfo:GetDamageForce()
 	damageDir:Normalize()
 	self.bumpBackDir = damageDir
 	self.bumpBackTimer = CurTime() + self.bumpBackTime

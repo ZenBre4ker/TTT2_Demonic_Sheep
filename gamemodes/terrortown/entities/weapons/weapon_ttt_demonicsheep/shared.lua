@@ -8,14 +8,14 @@ SWEP.Slot				= 1
 SWEP.SlotPos			= 2
 SWEP.Icon				= "vgui/ttt/demonicsheep/demonicsheep.png"
 SWEP.EquipMenuData		= {
-	type = "item_weapon",
-	desc = [[
-	Launch the Demonicsheep and control your enemies!
-	Left-Click: Control Enemy
-	Right-Click: Change Mode
-	Reload: Exit Sheepmode
-	]]
-	}
+							type = "item_weapon",
+							desc = [[
+							Launch the Demonicsheep and control your enemies!
+							Left-Click: Control Enemy
+							Right-Click: Change Mode
+							Reload: Exit Sheepmode
+							]]
+						}
 
 SWEP.Spawnable			= false
 SWEP.AutoSpawnable		= false
@@ -53,7 +53,6 @@ if SERVER then
 	AddCSLuaFile()
 	util.AddNetworkString("launchDemonicSheep")
 	util.AddNetworkString("controlPlayer")
-	util.AddNetworkString("demonicSheepMessage")
 	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
 		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
 	end
@@ -117,11 +116,8 @@ function SWEP:Initialize()
 	self:SetHoldType("pistol")
 
 	if CLIENT then
-		if self.AddTTT2HUDHelp then
-			self:AddTTT2HUDHelp("Control Target", "Change Controlmode")
-			self:AddHUDHelpLine("Switch Sheep/Player Control", Key("+reload", "R"))
-		end
-		net.Receive("demonicSheepMessage", function (len, ply) self:displayCurrentControl() end)
+		self:AddTTT2HUDHelp("Control Target", "Change Controlmode")
+		self:AddHUDHelpLine("Switch Sheep/Player Control", Key("+reload", "R"))
 	end
 
 	if SERVER then
@@ -225,35 +221,38 @@ function SWEP:OnRemove()
 end
 
 function SWEP:PrimaryAttack()
-	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
 	if self.demonicSheepEntOut then
-		-- Control Sheep, don't launch it again
-		if not self.demonicSheepEntInUse then return end
+		-- Control Sheep, don't launch it again and let this only be controlled by the Client
+		-- As the Client could cheat, check the received Data of the Client
+		if not self.demonicSheepEntInUse or SERVER then return end
 		local ent = self.demonicSheepEnt
+
 		if not IsValid(ent) or not self.demonicSheepEntInUse then return end
+
 		local startPos, ang = self:demonicSheepView(ent)
 		local endPos = ang:Forward()
 		endPos:Mul(2^16)
 		endPos:Add(startPos)
+
 		local trace = util.TraceLine({
 			start = startPos,
 			endpos = endPos,
 			mask = MASK_SHOT,
 			filter = {ent}
 		})
+
 		local tracedEnt = trace.Entity
 		if not IsValid(tracedEnt) or not tracedEnt:IsPlayer() then return end
+		self:SetNextPrimaryFire(CurTime() + self.Primary.Delay) -- if hit entity, set a delay
+
 		local currentControl = self.availableControls[self.currentControlType]
 		self.controlStructure[tracedEnt] = {currentControl[1], CurTime(), CurTime() + currentControl[2]}
 
-		-- Make sure that visually hit entities on the client get registered by the server
+		-- Make sure that visually hit entities on the client are sent to the server
 		if CLIENT then
-			PrintTable(trace)
-			local physicsBone = trace.PhysicsBone
-			print("Test for hitboxBone: " .. physicsBone)
 			net.Start("controlPlayer")
 			net.WriteEntity(tracedEnt)
-			net.WriteInt(physicsBone, 8)
+			net.WriteInt(trace.PhysicsBone, 8)
 			net.SendToServer()
 		end
 	else
@@ -282,10 +281,6 @@ function SWEP:SecondaryAttack()
 
 	if not IsFirstTimePredicted() then return end
 	self.currentControlType = 1 + math.fmod(self.currentControlType, #self.availableControls)
-
-	-- To be sure, let the server send its controltype to the player
-	if CLIENT then return end
-	self:displayCurrentControl()
 end
 
 function SWEP:Reload()
@@ -500,7 +495,7 @@ function SWEP:shouldDrawLocalPlayer()
 	if self.drawLocalPlayer and LocalPlayer() == self:GetOwner() then
 		return true
 	else
-		-- Let other addons be able to decide if it should be shown
+		-- Let other addons be able to decide if it should be shown by returning nothing
 		return
 	end
 end
@@ -530,7 +525,6 @@ function SWEP:launchSheep()
 
 		ent:Spawn()
 		ent:Activate()
-
 	end
 end
 
@@ -628,7 +622,7 @@ end
 
 function SWEP:receiveClientControlData(len, ply)
 	if len and len < 1 then
-		print("ERROR: Empty Message received by " .. ply .. " for initializeSheepTimer in SWEP:receiveViewModelDemonicSheepPosition")
+		print("ERROR: Empty Message received by " .. ply .. " for PrimaryAttack Sheep Control in SWEP:receiveClientControlData")
 		return
 	end
 	if not IsValid(ply) or ply ~= self:GetOwner() then return end
@@ -693,18 +687,6 @@ end
 		ent:SetAngles(ply:EyeAngles())
 	end
 --
-
-function SWEP:displayCurrentControl()
-	if SERVER then
-		net.Start("demonicSheepMessage")
-		net.WriteInt(self.currentControlType,4)
-		net.Send(self:GetOwner())
-	end
-	if CLIENT then
-		local controlMode = net.ReadInt(4)
-		chat.AddText("Control Mode: ", COLOR_RED, self.availableControls[controlMode][1])
-	end
-end
 
 -- This is a Helper-Function to get the Sequence Duration of the Viewmodel with the input sequence ID
 function SWEP:GetViewModelSequenceDuration(seqid)
