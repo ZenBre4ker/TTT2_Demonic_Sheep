@@ -315,7 +315,6 @@ end
 
 function SWEP:SecondaryAttack()
 	self:SetNextSecondaryFire(CurTime() + 0.1)
-	self.demonicSheepEnt:EmitSound("ttt_demonicsheep/demonicsheep_sound.wav",85,100,1)
 
 	if not IsFirstTimePredicted() then return end
 	self.currentControlType = 1 + math.fmod(self.currentControlType, #self.availableControls)
