@@ -1,22 +1,27 @@
 local base = "octagonal_element"
 
 DEFINE_BASECLASS(base)
-local element = hudelements.GetStored(base)
-if not element then return end
 
 HUDELEMENT.Base = base
 
+if SERVER then
+	AddCSLuaFile()
+	return
+end
+
 if CLIENT then -- CLIENT
-	local barheight = 40
-	local timersize = barheight
-	local gap = 5
-	local timerFont = "OctagonalBar"
-	local barFont = "OctagonalBar"
+
+	local healthColor  = Color(234, 41, 41)
+	local controlColor = Color(205, 155, 0)
+	local barHeight = 26
+	local pad = 15
+	local spaceBar = 7
+	local timersize = 42
 
 	local const_defaults = {
 		basepos = {x = 0, y = 0},
-		size = {w = 350, h = 2 * barheight},
-		minsize = {w = 350, h = 2 * barheight}
+		size = {w = 340, h = 2 * barHeight + 3 * spaceBar},
+		minsize = {w = 340, h = 2 * barHeight + 3 * spaceBar}
 	}
 
 	function HUDELEMENT:PreInitialize()
@@ -27,16 +32,17 @@ if CLIENT then -- CLIENT
 			hud:ForceElement(self.id)
 		end
 
-		-- set as NOT fallback default
-		self.disabledUnlessForced = true
+		-- set as fallback default, other skins have to be set to true!
+		self.disabledUnlessForced = false
 	end
 
 	function HUDELEMENT:Initialize()
 		self.scale = 1.0
 		self.basecolor = self:GetHUDBasecolor()
+		self.barHeight = barHeight * self.scale
+		self.pad = pad * self.scale
+		self.spaceBar = spaceBar * self.scale
 		self.timersize = timersize * self.scale
-		self.barheight = barheight * self.scale
-		self.gap = gap * self.scale
 
 		BaseClass.Initialize(self)
 	end
@@ -44,15 +50,16 @@ if CLIENT then -- CLIENT
 	function HUDELEMENT:PerformLayout()
 		self.basecolor = self:GetHUDBasecolor()
 		self.scale = self:GetHUDScale()
+		self.barHeight = barHeight * self.scale
+		self.pad = pad * self.scale
+		self.spaceBar = spaceBar * self.scale
 		self.timersize = timersize * self.scale
-		self.barheight = barheight * self.scale
-		self.gap = gap * self.scale
 
 		BaseClass.PerformLayout(self)
 	end
 
 	function HUDELEMENT:GetDefaults()
-		const_defaults["basepos"] = {x = math.Round(ScrW() / 2 - self.size.w * 0.5), y = math.Round(ScrH() - self.size.h - self.pad)}
+		const_defaults["basepos"] = {x = math.Round(ScrW() / 2 - self.size.w * 0.5), y = math.Round(ScrH() - self.size.h * 2 - self.pad)}
 
 		return const_defaults
 	end
@@ -65,56 +72,58 @@ if CLIENT then -- CLIENT
 	function HUDELEMENT:ShouldDraw()
 		local client = LocalPlayer()
 		local wep = client:GetActiveWeapon()
-		return IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse
+		return IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep"
 	end
 	-- parameter overwrites end
 
 	function HUDELEMENT:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
-		local rx, ry = x, y
-		local bw, bh = w, self.barheight
+		local ent = demonicsheep.demonicSheepEnt
 
-		--draw timer
-		local timeLeft = 0
-		local timerX = x + w * 0.5 - self.timersize * 0.5 - self.pad
-		local timerY = y - bh
-		self:DrawBg(timerX, timerY, self.timersize + 2 * self.pad, bh, self.healthBarColor)
-		draw.AdvancedText(tostring(timeLeft), timerFont, timerX + self.pad + self.timersize * 0.5, timerY + bh * 0.5, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, false, self.scale)
-		--drawing interpolation bar
-		self:DrawBg(timerX, timerY, self.pad, bh, self.darkOverlayColor)
-		self:DrawBg(timerX + self.timersize + self.pad, timerY, self.pad, bh, self.darkOverlayColor)
+		local health = 100
+		local maxHealth = 100
 
-		--draw boost bar
-		self:DrawBar(rx, ry, bw, bh, self.ammoBarColor, 0.5 , self.scale)
-		draw.AdvancedText("R - Boost", barFont, rx + bw * 0.5, ry + bh * 0.5, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, false, self.scale)
+		if IsValid(ent) then
+			health = ent:Health()
+			maxHealth = ent:GetMaxHealth()
+		end
 
-		ry = ry + bh
+		local rx, ry = x + self.spaceBar, y + self.spaceBar
+		local bw, bh = w - 2 * self.spaceBar, 26 * self.scale
 
-		--draw minify bar
-		local text = demonicsheep.demonicSheepEntInUse and "Right Click Test- Magnify" or "Right Click - Minify"
-		self:DrawBar(rx, ry, bw, bh, self.extraBarColor, 1.0, self.scale)
-		draw.AdvancedText(text, barFont, rx + bw * 0.5, ry + bh * 0.5, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, false, self.scale)
+		--draw Health bar
+		self:DrawBar(rx, ry, bw, bh, healthColor, health / maxHealth, self.scale)
+		draw.AdvancedText("Health: ", "OctagonalBar", rx + self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_LEFT, true, self.scale)
+		draw.AdvancedText(tostring(health .. "/" .. tostring(maxHealth)), "OctagonalBar", rx + bw * 0.5, ry + 1 * self.scale, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_LEFT, true, self.scale)
 
+		ry = ry + self.barHeight + self.spaceBar
+
+		--draw ControlMode bar
+		local controlTextLeft = "Control:"
+		local controlTextCenter = demonicsheep.availableControls[demonicsheep.currentControlType][1]
+		local controlTextRight = "(" .. tostring(demonicsheep.currentControlType) .. "/" .. tostring(#demonicsheep.availableControls) .. ")"
+		self:DrawBar(rx, ry, bw, bh, controlColor, (demonicsheep.currentControlType - 1) / (#demonicsheep.availableControls - 1), self.scale)
+		draw.AdvancedText(controlTextLeft, "OctagonalBar", rx + self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_LEFT, true, self.scale)
+		draw.AdvancedText(controlTextCenter, "OctagonalBar", rx + bw * 0.5, ry + 1 * self.scale, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_LEFT, true, self.scale)
+		draw.AdvancedText(controlTextRight, "OctagonalBar", rx + bw - self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_LEFT, true, self.scale)
 	end
 
 	function HUDELEMENT:Draw()
 		local client = LocalPlayer()
 		local pos = self:GetPos()
 		local size = self:GetSize()
+		local demonicsheep = client:GetActiveWeapon()
 		local x, y = pos.x, pos.y
 		local w, h = size.w, size.h
-		local demonicsheep = client:GetActiveWeapon()
 		local fontColor = util.GetDefaultColor(self.basecolor)
-
 
 		-- draw bg
 		self:DrawBg(x, y, w, h, self.basecolor)
 
-		if demonicsheep:GetClass() == "weapon_ttt_demonicsheep" then
-			self:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
-		end
+		-- draw border and shadow
+		self:DrawLines(x, y, w, h, self.basecolor.a)
 
-		--drawing the interpolation bar
-		self:DrawBg(x, y, self.pad, h, self.darkOverlayColor)
+		-- draw Health and Controlmode bar
+		self:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
 
 	end
 end

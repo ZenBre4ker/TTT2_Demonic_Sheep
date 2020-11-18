@@ -4,6 +4,11 @@ DEFINE_BASECLASS(base)
 
 HUDELEMENT.Base = base
 
+if SERVER then
+	AddCSLuaFile()
+	return
+end
+
 if CLIENT then -- CLIENT
 
 	local healthColor  = Color(234, 41, 41)

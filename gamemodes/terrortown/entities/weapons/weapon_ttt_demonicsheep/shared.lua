@@ -29,7 +29,7 @@ SWEP.DeploySpeed		= 0.01
 SWEP.Primary.Ammo		= "Demonicsheep"
 SWEP.Primary.Recoil		= 0
 SWEP.Primary.Damage		= 0
-SWEP.Primary.Delay		= 0.5
+SWEP.Primary.Delay		= 1
 SWEP.Primary.Cone		= 0
 SWEP.Primary.ClipSize	= 1
 SWEP.Primary.ClipMax	= 1
@@ -53,6 +53,8 @@ if SERVER then
 	AddCSLuaFile()
 	util.AddNetworkString("launchDemonicSheep")
 	util.AddNetworkString("controlPlayer")
+	util.PrecacheSound("ttt_demonicsheep/demonicsheep_sound.wav")
+	util.PrecacheSound("ttt_demonicsheep/ominous_wind.wav")
 	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
 		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
 	end
@@ -114,6 +116,40 @@ function SWEP:Initialize()
 	self.currentControlType = 1
 
 	self:SetHoldType("pistol")
+
+	-- Sounds
+	sound.Add( {
+	name = "demonicsheep_baa",
+	channel = CHAN_WEAPON,
+	volume = 1,
+	level = 85,
+	sound = "ttt_demonicsheep/demonicsheep_sound.wav"
+	} )
+
+	sound.Add( {
+	name = "demonicsheep_wind_ominous",
+	channel = CHAN_STATIC,
+	volume = 1,
+	level = 85,
+	sound = "ttt_demonicsheep/ominous_wind.wav"
+	} )
+
+	sound.Add( {
+	name = "demonicsheep_wind_background",
+	channel = CHAN_STATIC,
+	volume = 0.3,
+	level = 85,
+	sound = "ambient/levels/canals/windmill_wind_loop1.wav"
+	} )
+
+	sound.Add( {
+	name = "demonicsheep_controlsound",
+	channel = CHAN_WEAPON,
+	volume = 0.5,
+	level = 70,
+	sound = "garrysmod/ui_click.wav"
+	} )
+
 
 	if CLIENT then
 		self:AddTTT2HUDHelp("Control Target", "Change Controlmode")
@@ -179,6 +215,7 @@ function SWEP:Holster(wep)
 end
 
 function SWEP:OnDrop()
+	if not self.AllowDrop then return false end
 	if IsValid(self.demonicSheepEnt) then
 		self.demonicSheepEnt:SetOwner(nil)
 	end
@@ -278,6 +315,7 @@ end
 
 function SWEP:SecondaryAttack()
 	self:SetNextSecondaryFire(CurTime() + 0.1)
+	self.demonicSheepEnt:EmitSound("ttt_demonicsheep/demonicsheep_sound.wav",85,100,1)
 
 	if not IsFirstTimePredicted() then return end
 	self.currentControlType = 1 + math.fmod(self.currentControlType, #self.availableControls)
@@ -291,6 +329,7 @@ function SWEP:Reload()
 
 	self.demonicSheepEntInUse = not self.demonicSheepEntInUse
 	self.allowHolster = not self.allowHolster
+	self.AllowDrop = not self.AllowDrop
 	self.drawLocalPlayer = not self.drawLocalPlayer
 
 	if self.lastOrigin then
@@ -353,7 +392,7 @@ function SWEP:Think()
 	end
 
 	-- Initializing the demonic sheep before animation got fully played to have it available for Control
-	if self.initializeSheepTimer and self.initializeSheepTimer <= CurTime() + 0.3 then
+	if self.initializeSheepTimer and self.initializeSheepTimer <= CurTime() + 0.4 then
 		if CLIENT then
 			self.demonicSheepEnt = self:GetOwner():GetNWEntity("demonicSheepEnt")
 		end
@@ -369,7 +408,7 @@ function SWEP:Think()
 	end
 
 	-- Shortly after Initialization actually show the sheep and enable Controls
-	if self.enableControlSheepTimer and self.enableControlSheepTimer <= CurTime() + 0.1 and IsValid(self.demonicSheepEnt) then
+	if self.enableControlSheepTimer and self.enableControlSheepTimer <= CurTime() + 0.2 and IsValid(self.demonicSheepEnt) then
 		self.enableControlSheepTimer = nil
 
 		--self.allowHolster = true
@@ -502,9 +541,11 @@ end
 
 function SWEP:launchSheep()
 	self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+	self:EmitSound("demonicsheep_baa")
 
 	if not IsFirstTimePredicted() then return end
 	self.demonicSheepEntOut = true
+	self.AllowDrop = false
 
 	-- Initialize entity after animation is finished
 	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration()
@@ -647,12 +688,14 @@ function SWEP:receiveClientControlData(len, ply)
 	})
 
 	if not IsValid(trace.Entity) and trace.Entity ~= tracedEnt then return end
+	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
 
 	-- Finally overwrite controls of the trace Entity
 	local currentControl = self.availableControls[self.currentControlType]
 	self.controlStructure[tracedEnt] = {currentControl[1], CurTime(), CurTime() + currentControl[2]}
 
-
+	-- Play the controlsound for all
+	self:EmitSound("demonicsheep_controlsound")
 end
 
 -- This Section is for the sheep Position inside the Animation, when the sheep is launched

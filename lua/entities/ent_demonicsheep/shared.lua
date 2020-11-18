@@ -14,6 +14,10 @@ ENT.Model 					= Model("models/weapons/ent_ttt_demonicsheep.mdl")
 -- this is used to remove the SWEP if the sheep dies
 ENT.demonicSheepSwep		= nil
 
+-- localization for Translations
+local ParT = LANG.GetParamTranslation
+local TryT = LANG.TryTranslation
+
 function ENT:Initialize()
 	self:SetModel(self.Model)
 	if SERVER then
@@ -31,6 +35,8 @@ function ENT:Initialize()
 	end
 
 	self:EnableRendering(false)
+	self.windSound01 = nil
+	self.windSound02 = nil
 
 	self.beganFlying = false
 	self.applyPhysics = nil
@@ -121,6 +127,25 @@ function ENT:EnableRendering(bRender)
 	else
 		self.RenderGroup = RENDERGROUP_OTHER
 	end
+
+	-- Whenever the sheep is Rendered play Sounds
+	self:EnableLoopingSounds(bRender)
+end
+
+function ENT:EnableLoopingSounds(bSounds)
+	if bSounds then
+		self.windSound01 = self:StartLoopingSound("demonicsheep_wind_background")
+		self.windSound02 = self:StartLoopingSound("demonicsheep_wind_ominous")
+	else
+		if self.windSound01 then
+		self:StopLoopingSound(self.windSound01)
+		self.windSound01 = nil
+		end
+		if self.windSound02 then
+		self:StopLoopingSound(self.windSound02)
+		self.windSound02 = nil
+		end
+	end
 end
 
 function ENT:EnablePhysicsControl(bControl, entryPushTime)
@@ -179,6 +204,8 @@ function ENT:UpdateTransmitState()
 end
 
 function ENT:OnRemove()
+	-- Stop Sounds
+	self:EnableLoopingSounds(false)
 	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS")
 	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos")
 	return
@@ -201,7 +228,7 @@ function ENT:RenderEntityInfo(tData)
 	tData:SetTitle(self.PrintName,roleColor)
 
 	tData:SetSubtitle(
-		h_string,
+		TryT(h_string),
 		h_color
 	)
 end
