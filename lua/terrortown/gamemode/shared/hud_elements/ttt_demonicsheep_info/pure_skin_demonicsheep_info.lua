@@ -12,7 +12,7 @@ end
 if CLIENT then -- CLIENT
 
 	local healthColor  = Color(234, 41, 41)
-	local controlColor1 = Color(205, 155, 0)
+	local controlColor1 = Color(180, 133, 0)
 	local controlColor2 = Color(230, 177, 0)
 	local interpColor = controlColor1
 	local interpCount = 1

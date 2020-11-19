@@ -14,11 +14,18 @@ ENT.Model 					= Model("models/weapons/ent_ttt_demonicsheep.mdl")
 -- this is used to remove the SWEP if the sheep dies
 ENT.demonicSheepSwep		= nil
 
+-- Handling serveral SWEPs in one game
+local demonicEntCounter		= 0
+ENT.myId					= 0
+
 -- localization for Translations
 local ParT = LANG.GetParamTranslation
 local TryT = LANG.TryTranslation
 
 function ENT:Initialize()
+	demonicEntCounter = demonicEntCounter + 1
+	self.myId = demonicEntCounter
+
 	self:SetModel(self.Model)
 	if SERVER then
 		self:PhysicsInit(SOLID_VPHYSICS)
@@ -34,14 +41,14 @@ function ENT:Initialize()
 		self:DeleteOnRemove(self.demonicSheepSwep)
 	end
 
-	self.getRendered = false
+	self:EnableRendering(false)
 	self.windSound01 = nil
 	self.windSound02 = nil
 
 	self.beganFlying = false
 	self.applyPhysics = nil
 	self.entryPushTime = 2
-	self.pushForce = 200
+	self.speedForce = 300
 	self.angleBeforeCol = nil
 	self.bumpBackTimer = CurTime()
 	self.bumpBackTime = 0.5
@@ -51,7 +58,7 @@ function ENT:Initialize()
 	self.nextTime = CurTime()
 
 	-- Add a hook, so that everything gets rendered around that entity
-	hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS", function(ply, viewent)
+	hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self.myId), function(ply, viewent)
 		if IsValid(ply) and IsValid(ply:GetNWEntity("demonicSheepEnt")) then
 			local sheep = ply:GetNWEntity("demonicSheepEnt")
 			AddOriginToPVS(sheep:GetPos())
@@ -59,11 +66,11 @@ function ENT:Initialize()
 	end)
 
 	-- Add a Target ID to the Demonic Sheep
-	hook.Add("TTTRenderEntityInfo", "demonicSheepEntityInfos", function(tData)
+	hook.Add("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId), function(tData)
 		if self.RenderEntityInfo then
 			self:RenderEntityInfo(tData)
 		else
-			hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos")
+			hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId))
 		end
 	end)
 end
@@ -89,17 +96,17 @@ function ENT:Think()
 		-- Move sheep when entryPushTime got defined to have a little bit of movement at the start
 		if self.applyPhysics >= CurTime() then
 			local deltaTimeLeft = self.applyPhysics - CurTime()
-			phys:ApplyForceCenter(self:GetAngles():Forward() * self.pushForce * (deltaTimeLeft / self.entryPushTime))
+			phys:ApplyForceCenter(self:GetAngles():Forward() * self.speedForce * (deltaTimeLeft / self.entryPushTime))
 		end
 
 		-- Generally move the sheep in the set moveDirection
-		phys:ApplyForceCenter(self.moveDirection * self.pushForce)
+		phys:ApplyForceCenter(self.moveDirection * self.speedForce)
 
 		-- If a Collision happened, then bounce back to avoid strange collision behaviour
 		if self.bumpBackTimer then
 			local deltaTimeLeft = self.bumpBackTimer - CurTime()
 			if deltaTimeLeft >= 0 then
-				phys:ApplyForceCenter(self.bumpBackDir * self.pushForce * 2 * (deltaTimeLeft / self.bumpBackTime))
+				phys:ApplyForceCenter(self.bumpBackDir * self.speedForce * 2 * (deltaTimeLeft / self.bumpBackTime))
 			else
 				phys:SetVelocity(Vector(0,0,0))
 				self.bumpBackTimer = nil
@@ -140,11 +147,9 @@ function ENT:EnableLoopingSounds(bSounds)
 	else
 		if self.windSound01 then
 		self:StopLoopingSound(self.windSound01)
-		self.windSound01 = nil
 		end
 		if self.windSound02 then
 		self:StopLoopingSound(self.windSound02)
-		self.windSound02 = nil
 		end
 	end
 end
@@ -184,6 +189,8 @@ function ENT:OnTakeDamage(dmgInfo)
 
 	newHealth = self:Health() - damage
 	if newHealth <= 0 then
+		-- Stop Sounds before removing
+		self:EnableLoopingSounds(false)
 		self:Remove()
 	else
 		self:SetHealth(newHealth)
@@ -205,16 +212,17 @@ function ENT:UpdateTransmitState()
 end
 
 function ENT:OnRemove()
-	-- Stop Sounds
+	-- Stop Sounds before removing
 	self:EnableLoopingSounds(false)
-	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS")
-	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos")
+
+	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self.myId))
+	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId))
 	return
 end
 
 function ENT:RenderEntityInfo(tData)
 	local ent = tData:GetEntity()
-	if ent ~= self then return end
+	if ent:GetClass() ~= "ent_demonicsheep" then return end
 
 	-- enable targetID rendering
 	tData:EnableText()
@@ -223,10 +231,10 @@ function ENT:RenderEntityInfo(tData)
 	local h_string, h_color = util.HealthToString(ent:Health(), ent:GetMaxHealth())
 
 	local roleColor = COLOR_WHITE
-	if IsValid(self:GetOwner()) then
-		roleColor = self:GetOwner():GetRoleColor()
+	if IsValid(ent:GetOwner()) then
+		roleColor = ent:GetOwner():GetRoleColor()
 	end
-	tData:SetTitle(self.PrintName,roleColor)
+	tData:SetTitle(ent.PrintName,roleColor)
 
 	tData:SetSubtitle(
 		TryT(h_string),
