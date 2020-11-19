@@ -27,5 +27,6 @@ if SERVER then
   resource.AddFile( "materials/models/ttt_demonicsheep/demonicsheepTexture.vtf" )
   resource.AddFile( "materials/models/ttt_demonicsheep/demonicsheepCrate.vmt" )
   resource.AddFile( "materials/models/ttt_demonicsheep/demonicsheepCrate.vtf" )
-  resource.AddFile( "sound/ttt_demonicsheep/sheep_sound.wav" )
+  resource.AddFile( "sound/ttt_demonicsheep/demonicsheep_sound.wav" )
+  resource.AddFile( "sound/ttt_demonicsheep/ominous_wind.wav" )
 end
