@@ -34,7 +34,7 @@ function ENT:Initialize()
 		self:DeleteOnRemove(self.demonicSheepSwep)
 	end
 
-	self:EnableRendering(false)
+	self.getRendered = false
 	self.windSound01 = nil
 	self.windSound02 = nil
 
@@ -122,11 +122,12 @@ function ENT:Think()
 end
 
 function ENT:EnableRendering(bRender)
-	if bRender then
+	--[[if bRender then
 		self.RenderGroup = RENDERGROUP_OPAQUE
 	else
 		self.RenderGroup = RENDERGROUP_OTHER
-	end
+	end--]]
+	self.getRendered = bRender
 
 	-- Whenever the sheep is Rendered play Sounds
 	self:EnableLoopingSounds(bRender)
@@ -231,6 +232,11 @@ function ENT:RenderEntityInfo(tData)
 		TryT(h_string),
 		h_color
 	)
+end
+
+function ENT:Draw()
+	if not IsValid(self) or not self.getRendered then return end
+	self:DrawModel()
 end
 --[[
 

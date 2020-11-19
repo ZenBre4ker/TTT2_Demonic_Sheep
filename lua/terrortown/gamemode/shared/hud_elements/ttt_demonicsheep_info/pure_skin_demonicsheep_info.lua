@@ -12,7 +12,10 @@ end
 if CLIENT then -- CLIENT
 
 	local healthColor  = Color(234, 41, 41)
-	local controlColor = Color(205, 155, 0)
+	local controlColor1 = Color(205, 155, 0)
+	local controlColor2 = Color(230, 177, 0)
+	local interpColor = controlColor1
+	local interpCount = 1
 	local barHeight = 26
 	local pad = 15
 	local spaceBar = 7
@@ -76,6 +79,26 @@ if CLIENT then -- CLIENT
 	end
 	-- parameter overwrites end
 
+	function HUDELEMENT:Draw()
+		local client = LocalPlayer()
+		local pos = self:GetPos()
+		local size = self:GetSize()
+		local demonicsheep = client:GetActiveWeapon()
+		local x, y = pos.x, pos.y
+		local w, h = size.w, size.h
+		local fontColor = util.GetDefaultColor(self.basecolor)
+
+		-- draw bg
+		self:DrawBg(x, y, w, h, self.basecolor)
+
+		-- draw border and shadow
+		self:DrawLines(x, y, w, h, self.basecolor.a)
+
+		-- draw Health and Controlmode bar
+		self:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
+
+	end
+
 	function HUDELEMENT:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
 		local ent = demonicsheep.demonicSheepEnt
 
@@ -97,33 +120,35 @@ if CLIENT then -- CLIENT
 
 		ry = ry + self.barHeight + self.spaceBar
 
+		local controlState = demonicsheep.currentControlType
+		local maxStates = #demonicsheep.availableControls
+
+		if interpCount ~= controlState then
+			interpCount = controlState
+			interpColor = self:ColorInterp(controlColor1, controlColor2, interpCount, maxStates)
+		end
+
 		--draw ControlMode bar
 		local controlTextLeft = "Control:"
-		local controlTextCenter = demonicsheep.availableControls[demonicsheep.currentControlType][1]
-		local controlTextRight = "(" .. tostring(demonicsheep.currentControlType) .. "/" .. tostring(#demonicsheep.availableControls) .. ")"
-		self:DrawBar(rx, ry, bw, bh, controlColor, (demonicsheep.currentControlType - 1) / (#demonicsheep.availableControls - 1), self.scale)
+		local controlTextCenter = demonicsheep.availableControls[controlState][1]
+		local controlTextRight = "(" .. tostring(controlState) .. "/" .. tostring(maxStates) .. ")"
+		self:DrawBar(rx, ry, bw, bh, interpColor, 1, self.scale) -- old Bar with progress p=(controlState - 1) / (maxStates - 1)
 		draw.AdvancedText(controlTextLeft, "PureSkinBar", rx + self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_LEFT, true, self.scale)
 		draw.AdvancedText(controlTextCenter, "PureSkinBar", rx + bw * 0.5, ry + 1 * self.scale, fontColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_LEFT, true, self.scale)
 		draw.AdvancedText(controlTextRight, "PureSkinBar", rx + bw - self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_LEFT, true, self.scale)
 	end
 
-	function HUDELEMENT:Draw()
-		local client = LocalPlayer()
-		local pos = self:GetPos()
-		local size = self:GetSize()
-		local demonicsheep = client:GetActiveWeapon()
-		local x, y = pos.x, pos.y
-		local w, h = size.w, size.h
-		local fontColor = util.GetDefaultColor(self.basecolor)
+	function HUDELEMENT:ColorInterp(Color1, Color2, step, maxSteps)
+		local r = Color1.r
+		local g = Color1.g
+		local b = Color1.b
+		local a = Color1.a
 
-		-- draw bg
-		self:DrawBg(x, y, w, h, self.basecolor)
+		r = r + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.r - r) / (maxSteps - 1)
+		g = g + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.g - g) / (maxSteps - 1)
+		b = b + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.b - b) / (maxSteps - 1)
+		a = a + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.a - a) / (maxSteps - 1)
 
-		-- draw border and shadow
-		self:DrawLines(x, y, w, h, self.basecolor.a)
-
-		-- draw Health and Controlmode bar
-		self:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
-
+		return Color(r, g, b, a)
 	end
 end

@@ -102,7 +102,7 @@ function SWEP:Initialize()
 	self.sheepViewDistanceForward = 40
 	self.sheepViewDistanceUp = 25
 
-	-- Controlstructure should be {Player} {"Command", startTime, endTime}
+	-- Controlstructure should be {Player} {"Command", endTime}
 	self.controlStructure = {}
 	-- Available Controles are {"ControlType", duration}
 	self.availableControls = {
@@ -283,7 +283,7 @@ function SWEP:PrimaryAttack()
 		self:SetNextPrimaryFire(CurTime() + self.Primary.Delay) -- if hit entity, set a delay
 
 		local currentControl = self.availableControls[self.currentControlType]
-		self.controlStructure[tracedEnt] = {currentControl[1], CurTime(), CurTime() + currentControl[2]}
+		self.controlStructure[tracedEnt] = {currentControl[1], CurTime() + currentControl[2]}
 
 		-- Make sure that visually hit entities on the client are sent to the server
 		if CLIENT then
@@ -582,8 +582,8 @@ end
 	-- Server only, because prediction for the sheep is still broken
 	function SWEP:controlSheep(ply, cmd)
 		local wep = ply:GetActiveWeapon()
-		if SERVER and ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
-			local ent = self.demonicSheepEnt
+		if SERVER and ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
+			local ent = wep.demonicSheepEnt
 
 			-- Handle View Rotations
 			local mouseX = cmd:GetMouseX()
@@ -596,7 +596,6 @@ end
 
 			-- Handle Sheep Movement
 			local forwardMove = cmd:GetForwardMove()
-			--print("\nSheep control Forward: " .. cmd:GetForwardMove())
 			local sideMove = cmd:GetSideMove()
 			local upMove = self:getUpMove(cmd) * 10000
 			local sprintMove = (cmd:KeyDown(IN_SPEED) and 1.5) or 1
@@ -608,16 +607,16 @@ end
 
 	-- By Hooking to the Move-Hook we disable the players movement and him looking around
 	function SWEP:blockPlayerActions(ply, mv)
-		local wep = ply:GetActiveWeapon()
-		if ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and self.demonicSheepEntInUse then
+		local wep = ply:GetActiveWeapon() -- Use active Weapon instead of self to allow multiple instances of this SWEP
+		if ply:IsValid() and IsValid(wep) and wep:GetClass() == "weapon_ttt_demonicsheep" and wep.demonicSheepEntInUse then
 
 			if not wep.lastAngle then
-				self.lastAngle = mv:GetAngles()
+				wep.lastAngle = mv:GetAngles()
 			end
 
 			-- Set MoveDataVelocity to 0, this disables all other physics interactions
 			mv:SetVelocity(Vector(0,0,0))
-			ply:SetEyeAngles(self.lastAngle)
+			ply:SetEyeAngles(wep.lastAngle)
 
 			-- Return true to block defaul Calculation of Movement-Data and stop Animations
 			return true
@@ -629,24 +628,31 @@ end
 function SWEP:manipulatePlayer(ply, cmd)
 	if not IsValid(ply) or not IsValid(self:GetOwner()) or not self.controlStructure[ply] then return end
 	local wep = self:GetOwner():GetActiveWeapon()
-	if not IsValid(wep) or wep:GetClass() ~= "weapon_ttt_demonicsheep" or not self.demonicSheepEntInUse then return end
+	if not IsValid(wep) or wep:GetClass() ~= "weapon_ttt_demonicsheep" or not wep.demonicSheepEntInUse then return end
 
-	local controlList = self.controlStructure[ply]
-	if controlList[2] <= CurTime() and controlList[3]  >= CurTime() - 0.5 then
+	local controlList = wep.controlStructure[ply]
+	if controlList[2]  >= CurTime() then
 		local controlKey = controlList[1]
 		if controlKey == "Attack" then
 			cmd:SetButtons(cmd:GetButtons() + IN_ATTACK)
 		elseif controlKey == "Drop Weapon" then
-			ply:DropWeapon()
+			if SERVER and #ply:GetWeapons() > 3 and ply:GetActiveWeapon().AllowDrop then
+				ply:DropWeapon() -- only available on Server
+			else
+				self.controlStructure[ply] = nil
+			end
 		elseif controlKey == "Holster Weapon" then
-			local changeToSwep = ply:GetWeapons()[2]
-			if CLIENT then
-				input.SelectWeapon(changeToSwep)
-			end
+			local changeToSwep = ply:GetWeapons()[3] -- 3 Should be Holstered in TTT if not changed
+			if IsValid(changeToSwep) then
+				if CLIENT then
+					input.SelectWeapon(changeToSwep)
+				end
 
-			if SERVER then
-				ply:SelectWeapon(WEPS.GetClass(changeToSwep))
+				if SERVER then
+					ply:SelectWeapon(WEPS.GetClass(changeToSwep))
+				end
 			end
+			self.controlStructure[ply] = nil
 		elseif controlKey == "Move Forward" then
 			cmd:SetButtons(cmd:GetButtons() + IN_FORWARD)
 			cmd:SetForwardMove(cmd:GetForwardMove() + 9950)
@@ -691,7 +697,7 @@ function SWEP:receiveClientControlData(len, ply)
 
 	-- Finally overwrite controls of the trace Entity
 	local currentControl = self.availableControls[self.currentControlType]
-	self.controlStructure[tracedEnt] = {currentControl[1], CurTime(), CurTime() + currentControl[2]}
+	self.controlStructure[tracedEnt] = {currentControl[1], CurTime() + currentControl[2]}
 
 	-- Play the controlsound for all
 	self:EmitSound("demonicsheep_controlsound")
