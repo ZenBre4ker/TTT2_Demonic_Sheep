@@ -41,7 +41,7 @@ function ENT:Initialize()
 		self:DeleteOnRemove(self.demonicSheepSwep)
 	end
 
-	self:EnableRendering(false)
+	self:EnableRendering(true)
 	self.windSound01 = nil
 	self.windSound02 = nil
 
@@ -215,9 +215,45 @@ function ENT:OnRemove()
 	-- Stop Sounds before removing
 	self:EnableLoopingSounds(false)
 
+	self:CreateRagdoll()
+
 	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self.myId))
 	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId))
 	return
+end
+
+function ENT:CreateRagdoll()
+	if CLIENT then return end
+	local rag = ents.Create("prop_ragdoll")
+	if not IsValid(rag) then return end
+
+	rag:SetPos(self:GetPos())
+	rag:SetModel(self:GetModel())
+	rag:SetAngles(self:GetAngles())
+	rag:SetColor(self:GetColor())
+
+	rag:Spawn()
+	rag:Activate()
+
+	-- nonsolid to players, but can be picked up and shot
+	rag:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+	rag:SetCustomCollisionCheck(true)
+
+	-- position the bones
+	local num = (rag:GetPhysicsObjectCount() - 1)
+
+	for i = 0, num do
+		local bone = rag:GetPhysicsObjectNum(i)
+
+		if IsValid(bone) then
+			local bp, ba = ply:GetBonePosition(rag:TranslatePhysBoneToBone(i))
+
+			if bp and ba then
+				bone:SetPos(bp)
+				bone:SetAngles(ba)
+			end
+		end
+	end
 end
 
 function ENT:RenderEntityInfo(tData)
