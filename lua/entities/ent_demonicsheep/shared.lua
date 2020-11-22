@@ -21,6 +21,10 @@ ENT.myId					= 0
 -- localization for Translations
 local TryT = LANG.TryTranslation
 
+function ENT:SetupDataTables()
+	self:NetworkVar( "Bool", 0, "getRendered" )
+end
+
 -- Always send data to clients
 function ENT:UpdateTransmitState()
 	return TRANSMIT_ALWAYS
@@ -193,12 +197,12 @@ end
 
 -- Renders the entity depending on self.getRendered
 function ENT:Draw()
-	if not IsValid(self) or not self.getRendered then return end
+	if not IsValid(self) or not self:GetgetRendered() then return end
 	self:DrawModel()
 end
 
 function ENT:EnableRendering(bRender)
-	self.getRendered = bRender
+	self:SetgetRendered(bRender)
 
 	-- Whenever the sheep is Rendered play Sounds
 	self:EnableLoopingSounds(bRender)
@@ -279,7 +283,7 @@ function ENT:CreateRagdoll()
 		local bone = rag:GetPhysicsObjectNum(i)
 
 		if IsValid(bone) then
-			local bp, ba = ply:GetBonePosition(rag:TranslatePhysBoneToBone(i))
+			local bp, ba = self:GetBonePosition(rag:TranslatePhysBoneToBone(i))
 
 			if bp and ba then
 				bone:SetPos(bp)

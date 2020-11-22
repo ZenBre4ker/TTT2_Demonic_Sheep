@@ -120,7 +120,7 @@ if CLIENT then -- CLIENT
 
 		ry = ry + self.barHeight + self.spaceBar
 
-		local controlState = demonicsheep.currentControlType
+		local controlState = demonicsheep:GetcurrentControlType()
 		local maxStates = #demonicsheep.availableControls
 
 		if interpCount ~= controlState then
