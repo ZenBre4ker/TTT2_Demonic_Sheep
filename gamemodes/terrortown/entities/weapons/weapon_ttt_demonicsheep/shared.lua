@@ -284,8 +284,6 @@ function SWEP:OnDrop()
 	end
 
 	if SERVER then
-		self:SetholsterSheepAnimation(true)
-		self:SetallowHolster(true)
 		self:SetdemonicSheepEntInUse(false)
 		self:SetdrawWorldModel(false)
 		self:dropItemModel()
@@ -315,8 +313,6 @@ function SWEP:OnRemove()
 
 	-- Allow safe Removal
 	if SERVER then
-		self:SetholsterSheepAnimation(false)
-		self:SetallowHolster(true)
 		self:SetdemonicSheepEntInUse(false)
 		self:SetdemonicSheepEntOut(false)
 		if IsEntity(self:GetitemDrop()) then self:GetitemDrop():Remove() end
@@ -439,23 +435,23 @@ function SWEP:Reload()
 	if not IsFirstTimePredicted() then return end
 	if not self:GetallowViewSwitching() then return end
 	self.nextReload = CurTime() + 0.3
+	local reversedEntInUse = not self:GetdemonicSheepEntInUse()
 	if SERVER then
-		local reversedEntInUse = not self:GetdemonicSheepEntInUse()
 		self:SetdemonicSheepEntInUse(reversedEntInUse)
-		self:SetallowHolster(not reversedEntInUse)
-		self:SetallowDrop(not reversedEntInUse)
+		--self:SetallowHolster(not reversedEntInUse)
+		--self:SetallowDrop(not reversedEntInUse)
 	end
 
-	if self:GetlastAngleSet() then
-		self:SetlastAngleSet(false)
-	end
 
-	if self:GetallowHolster() then
+	if reversedEntInUse then
+		self:SetHoldType("magic")
+		if self:GetlastAngleSet() then
+			self:SetlastAngleSet(false)
+		end
+	else
 		self:SetHoldType("normal")
 		-- Make sure, that the sheep doesn't fly away, when a key was pressed while switching Views
 		self:GetdemonicSheepEnt():SetMoveDirection(Vector(0, 0, 0))
-	else
-		self:SetHoldType("magic")
 	end
 
 end
@@ -508,6 +504,8 @@ function SWEP:Think()
 		if SERVER then
 			self:SetdemonicSheepEntInUse(true)
 			self:SetallowViewSwitching(true)
+			self:SetallowDrop(true)
+			self:SetallowHolster(true)
 			self:SetdrawWorldModel(false)
 			self:GetdemonicSheepEnt():EnableRendering(true)
 			self:GetdemonicSheepEnt():EnablePhysicsControl(true, 1.7)
