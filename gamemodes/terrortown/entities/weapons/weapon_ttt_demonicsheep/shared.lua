@@ -189,12 +189,22 @@ function SWEP:Initialize()
 			entity:Remove()
 			return false
 		end
+
+		-- In case that the invisible worldmodel is picked up, disable it
+		if IsValid(ply) and IsValid(entity) and entity == self then
+			return false
+		end
 		return
 	end)
 
 	hook.Add("StartCommand", "manipulatePlayerActions" .. tostring(self:GetmyId()), function(ply, cmd)
 		if not self.manipulatePlayer then return end
 		self:manipulatePlayer(ply, cmd)
+	end)
+
+	hook.Add("Move", "blockPlayerActions"  .. tostring(self:GetmyId()), function(ply, mv)
+		if not self.blockPlayerActions then return end
+		return self:blockPlayerActions(ply, mv)
 	end)
 
 	if CLIENT then
@@ -333,7 +343,8 @@ function SWEP:OnRemove()
 	if SERVER then
 		self:SetdemonicSheepEntInUse(false)
 		self:SetdemonicSheepEntOut(false)
-		if IsEntity(self:GetitemDrop()) then self:GetitemDrop():Remove() end
+		local itemDrop = self:GetitemDrop()
+		if IsValid(itemDrop) and IsEntity(itemDrop) then itemDrop:Remove() end
 	end
 
 	if IsValid(self:GetdemonicSheepEnt()) and SERVER then
@@ -403,11 +414,6 @@ function SWEP:launchSheep()
 	hook.Add("StartCommand", "readPlayerMovement" .. tostring(self:GetmyId()), function(ply, cmd)
 		if not self.controlSheep then return end
 		self:controlSheep(ply, cmd)
-	end)
-
-	hook.Add("Move", "blockPlayerActions"  .. tostring(self:GetmyId()), function(ply, mv)
-		if not self.blockPlayerActions then return end
-		return self:blockPlayerActions(ply, mv)
 	end)
 
 	if SERVER then
@@ -556,7 +562,7 @@ end
 -- To show Target IDs of players this is hooked to TTTModifyTargetedEntity and calculates the entity, the sheep can see
 function SWEP:remoteTargetId()
 	local ent = self:GetdemonicSheepEnt()
-	if LocalPlayer() ~= self:GetOwner() or not IsValid(ent) or not self:GetdemonicSheepEntInUse() then return end
+	if not self:GetdemonicSheepEntInUse() or not IsValid(ent) or not (LocalPlayer() == self:GetOwner() or LocalPlayer():GetObserverTarget() == self:GetOwner()) then return end
 
 	local pos, ang = self:demonicSheepView(ent)
 	local dir = ang:Forward()
@@ -579,6 +585,7 @@ function SWEP:playDrawWeaponAnimation(bPlayDrawAnimation)
 	end
 end
 
+-- TODO: When observing player controlling the sheep, the observed target is somehow not drawn
 function SWEP:shouldDrawLocalPlayer()
 	if self:GetdemonicSheepEntInUse() and (LocalPlayer() == self:GetOwner() or LocalPlayer():GetObserverTarget() == self:GetOwner()) then
 		return true
