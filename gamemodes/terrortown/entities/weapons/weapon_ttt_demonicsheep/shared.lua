@@ -182,13 +182,13 @@ function SWEP:Initialize()
 	-- Manage the dropped Item to give you the real SWEP and remove both
 	hook.Add("PlayerUse", "demonicsheepPickupItem" .. tostring(self:GetmyId()), function(ply, entity)
 		if IsValid(ply) and IsValid(entity) and entity:GetModel() == self.ItemModel
-		and ply:CanCarryType(WEAPON_EQUIP2) and not ply:HasWeapon(self:GetClass()) and entity:GetNWInt("myId") and entity:GetNWInt("myId") == self:GetmyId() then
+		and ply:CanCarryType(WEAPON_EQUIP2) and not ply:HasWeapon(self:GetClass())
+		and entity:GetNWInt("myId") and entity:GetNWInt("myId") == self:GetmyId() then
 			ply:PickupWeapon(self)
 
 			entity:Remove()
 			return false
 		end
-		--if IsValid(ply) and entity == self and IsEntity(self:GetitemDrop()) then self:GetitemDrop():Remove() end
 		return
 	end)
 
