@@ -182,14 +182,19 @@ function SWEP:Initialize()
 	-- Manage the dropped Item to give you the real SWEP and remove both
 	hook.Add("PlayerUse", "demonicsheepPickupItem" .. tostring(self:GetmyId()), function(ply, entity)
 		if IsValid(ply) and IsValid(entity) and entity:GetModel() == self.ItemModel
-		and ply:CanCarryType(WEAPON_EQUIP2) and entity:GetNWInt("myId") and entity:GetNWInt("myId") == self:GetmyId() then
+		and ply:CanCarryType(WEAPON_EQUIP2) and not ply:HasWeapon(self:GetClass()) and entity:GetNWInt("myId") and entity:GetNWInt("myId") == self:GetmyId() then
 			ply:PickupWeapon(self)
 
 			entity:Remove()
 			return false
 		end
-		if IsValid(ply) and entity == self and IsEntity(self:GetitemDrop()) then self:GetitemDrop():Remove() end
+		--if IsValid(ply) and entity == self and IsEntity(self:GetitemDrop()) then self:GetitemDrop():Remove() end
 		return
+	end)
+
+	hook.Add("StartCommand", "manipulatePlayerActions" .. tostring(self:GetmyId()), function(ply, cmd)
+		if not self.manipulatePlayer then return end
+		self:manipulatePlayer(ply, cmd)
 	end)
 
 	if CLIENT then
@@ -277,6 +282,9 @@ function SWEP:Holster(wep)
 		self:SetholsterSheepAnimation(true)
 		self:SetallowHolster(false)
 		self:SetdemonicSheepEntInUse(false)
+		if IsValid(self:GetdemonicSheepEnt()) then
+			self:GetdemonicSheepEnt():SetMoveDirection(Vector(0, 0, 0))
+		end
 	end
 	return true
 end
@@ -284,6 +292,7 @@ end
 function SWEP:OnDrop()
 	if not self:GetallowDrop() then return false end
 	if IsValid(self:GetdemonicSheepEnt()) then
+		self:GetdemonicSheepEnt():SetMoveDirection(Vector(0, 0, 0))
 		self:GetdemonicSheepEnt():SetOwner(nil)
 	end
 
@@ -396,10 +405,6 @@ function SWEP:launchSheep()
 		self:controlSheep(ply, cmd)
 	end)
 
-	hook.Add("StartCommand", "manipulatePlayerActions" .. tostring(self:GetmyId()), function(ply, cmd)
-		if not self.manipulatePlayer then return end
-		self:manipulatePlayer(ply, cmd)
-	end)
 	hook.Add("Move", "blockPlayerActions"  .. tostring(self:GetmyId()), function(ply, mv)
 		if not self.blockPlayerActions then return end
 		return self:blockPlayerActions(ply, mv)
@@ -575,7 +580,7 @@ function SWEP:playDrawWeaponAnimation(bPlayDrawAnimation)
 end
 
 function SWEP:shouldDrawLocalPlayer()
-	if self:GetdemonicSheepEntInUse() and (LocalPlayer() == self:GetOwner() or LocalPlayer():GetObserverTarget() == self:GetOwner())then
+	if self:GetdemonicSheepEntInUse() and (LocalPlayer() == self:GetOwner() or LocalPlayer():GetObserverTarget() == self:GetOwner()) then
 		return true
 	else
 		-- Let other addons be able to decide if it should be shown by returning nothing
@@ -623,7 +628,7 @@ end
 
 	-- By Hooking to the Move-Hook we disable the players movement and him looking around
 	function SWEP:blockPlayerActions(ply, mv)
-		if not ply:IsValid() then return end
+		if not IsValid(ply) or not IsValid(self:GetOwner()) or self:GetOwner() ~= ply then return end
 		local wep = ply:GetActiveWeapon()
 
 		if not IsValid(wep) or wep ~= self or not self:GetdemonicSheepEntInUse() then return end
