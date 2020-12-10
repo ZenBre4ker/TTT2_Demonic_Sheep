@@ -56,6 +56,7 @@ function ENT:Initialize()
 	self.windSound02 = nil
 
 	self.beganFlying = false
+	self.isIdle = false
 	self.applyPhysics = nil
 	self.entryPushTime = 2
 	self.speedForce = 300
@@ -177,6 +178,15 @@ end
 -- Is used to move the sheep, by setting a moveDirection-Vector
 function ENT:SetMoveDirection(moveDirection)
 	self.moveDirection = moveDirection
+	if moveDirection:Length() == 0 then
+		if not self.isIdle then
+			self.isIdle = true
+			self:SetSequence("idle")
+		end
+	elseif self.isIdle then
+		self.isIdle = false
+		self:SetSequence("fly")
+	end
 end
 
 -- ENTITY:PhysicsCollide(table colData, PhysObj collider)

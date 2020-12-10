@@ -45,7 +45,6 @@ SWEP.Spawnable			= false
 SWEP.AutoSpawnable		= false
 SWEP.LimitedStock		= false
 SWEP.AllowDrop			= true
-SWEP.HoldType			= "pistol"
 SWEP.Kind				= WEAPON_EQUIP2
 SWEP.CanBuy				= { ROLE_TRAITOR }
 SWEP.WeaponID			= AMMO_DEMONICSHEEP
@@ -73,7 +72,7 @@ SWEP.IronSightsPos		= Vector(2.773, 0, 0.846)
 SWEP.IronSightsAng		= Vector(-0.157, 0, 0)
 
 -- Custom SWEP Variables referenced with self
-SWEP.ItemModel			= "models/weapons/item_ttt_demonicsheep.mdl"
+SWEP.ItemModel			= "models/weapons/ent_ttt_demonicsheep.mdl"
 
 SWEP.nextReload = 0
 SWEP.resetSightsTimer = nil
@@ -85,6 +84,7 @@ SWEP.primaryAttDuration = 1
 
 SWEP.sheepViewDistanceForward = 40
 SWEP.sheepViewDistanceUp = 25
+SWEP.sheepViewDistanceSide = -10
 
 -- Available Controles are {"ControlType", duration}
 SWEP.availableControls = {
@@ -96,6 +96,7 @@ SWEP.availableControls = {
 }
 
 -- Handling serveral SWEPs in one game
+-- TODO: Should be converted to SWEP.Variable for global use
 local demonicSheepSwepCount = 0
 
 -- Sounds
@@ -154,6 +155,7 @@ function SWEP:Initialize()
 	demonicSheepSwepCount = demonicSheepSwepCount + 1
 
 	self:SetNetworkedVariables()
+	self:SetHoldType("magic")
 
 	if CLIENT then
 		self:AddTTT2HUDHelp("Control Target", "Change Controlmode")
@@ -193,7 +195,7 @@ function SWEP:Initialize()
 	if CLIENT then
 		-- Add a Target ID to the Item using the actual weapon's infos
 		hook.Add("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()), function(ent, distance)
-			if ent:GetClass() ~= "prop_physics" or not ent:GetNWInt("myId") or ent:GetNWInt("myId") ~= self:GetmyId() then return end
+			if ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWInt("myId") or ent:GetNWInt("myId") ~= self:GetmyId() then return end
 			return self
 		end)
 
@@ -202,6 +204,10 @@ function SWEP:Initialize()
 			local ent = tData:GetUnchangedEntity() or tData:GetEntity()
 			if ent:GetClass() ~= "weapon_ttt_demonicsheep" or ent:GetmyId() ~= self:GetmyId() then return end
 			tData:EnableText(false)
+		end)
+		hook.Add("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()), function()
+			if not self.remoteTargetId then return end
+			return self:remoteTargetId()
 		end)
 	end
 end
@@ -226,12 +232,10 @@ function SWEP:SetNetworkedVariables()
 end
 
 function SWEP:Equip(newOwner)
-	print("Equip")
 	self:SetlastOwner(newOwner)
 end
 
 function SWEP:Deploy()
-	print("Deploy")
 	-- Plays Draw_Weapon-Animation of the Sheep in your Hands
 	local bPlayDrawAnimation = true
 	self:playDrawWeaponAnimation(bPlayDrawAnimation)
@@ -288,24 +292,29 @@ function SWEP:OnDrop()
 		self:SetdrawWorldModel(false)
 		self:dropItemModel()
 	end
-	print("Dropped")
 	return
 end
 
 function SWEP:dropItemModel()
-	ent_item = ents.Create("prop_physics")
+	ent_item = ents.Create("prop_ragdoll")
 
 	ent_item:SetModel(self.ItemModel)
-	ent_item:SetPos(self:GetPos() + self:GetlastOwner():GetAimVector() * 10)
+	ent_item:SetPos(self:GetPos() + self:GetlastOwner():GetAimVector() * 30)
+	ent_item:SetAngles(self:GetlastOwner():EyeAngles())
 	ent_item:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 	ent_item:SetNWInt("myId", self:GetmyId())
 	ent_item:SetUseType(SIMPLE_USE)
 	self:SetitemDrop(ent_item)
 
 	ent_item:Spawn()
+	ent_item:Activate()
+
+	-- Nonsolid to players, but can be picked up and shot
+	ent_item:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+	ent_item:SetCustomCollisionCheck(true)
+
 	local phys = ent_item:GetPhysicsObject()
-	phys:ApplyForceCenter(self:GetlastOwner():GetPhysicsObject():GetVelocity() * 2 + self:GetlastOwner():GetAimVector() * 400 + Vector(0, 0, 100))
-	phys:AddAngleVelocity(self:GetlastOwner():GetAimVector() * 100)
+	phys:ApplyForceCenter((self:GetlastOwner():GetPhysicsObject():GetVelocity() * 2 + self:GetlastOwner():GetAimVector() * 400 + Vector(0, 0, 100)) * 30)
 end
 
 function SWEP:OnRemove()
@@ -322,8 +331,6 @@ function SWEP:OnRemove()
 		self:GetdemonicSheepEnt():Remove()
 		self:SetdemonicSheepEnt(nil)
 	end
-
-	print("Removed")
 	return
 end
 
@@ -383,10 +390,6 @@ function SWEP:launchSheep()
 		cmd:ClearMovement()
 		cmd:ClearButtons()
 	end)
-	hook.Add("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()), function()
-		if not self.remoteTargetId then return end
-		return self:remoteTargetId()
-	end)
 
 	hook.Add("StartCommand", "readPlayerMovement" .. tostring(self:GetmyId()), function(ply, cmd)
 		if not self.controlSheep then return end
@@ -424,7 +427,6 @@ function SWEP:SecondaryAttack()
 	self:SetNextSecondaryFire(CurTime() + 0.2)
 
 	if not IsFirstTimePredicted() then return end
-	print("Marker for Swep id " .. self:GetmyId() .. "/" .. demonicSheepSwepCount)
 	if SERVER then
 		self:SetcurrentControlType(1 + math.fmod(self:GetcurrentControlType(), #self.availableControls))
 	end
@@ -438,8 +440,6 @@ function SWEP:Reload()
 	local reversedEntInUse = not self:GetdemonicSheepEntInUse()
 	if SERVER then
 		self:SetdemonicSheepEntInUse(reversedEntInUse)
-		--self:SetallowHolster(not reversedEntInUse)
-		--self:SetallowDrop(not reversedEntInUse)
 	end
 
 
@@ -486,12 +486,12 @@ function SWEP:Think()
 		self.enableControlSheepTimer = self.initializeSheepTimer
 		self.initializeSheepTimer = nil
 		if CLIENT then
-			-- Bone number 45 is the Demonicsheep_Breast 
+			-- Bone number 2 Root
 			local ent = self:GetdemonicSheepEnt()
 			if not IsValid(ent) then return end
 
 			--Set Position depending on the view model clientside
-			local pos = self:GetOwner():GetViewModel():GetBoneMatrix(45):GetTranslation()
+			local pos = self:GetOwner():GetViewModel():GetBoneMatrix(2):GetTranslation()
 			ent:SetPos(pos)
 			ent:SetAngles(self:GetOwner():EyeAngles())
 		end
@@ -510,7 +510,6 @@ function SWEP:Think()
 			self:GetdemonicSheepEnt():EnableRendering(true)
 			self:GetdemonicSheepEnt():EnablePhysicsControl(true, 1.7)
 			self:SendWeaponAnim(ACT_VM_IDLE)
-			self:SetHoldType("magic")
 		end
 
 		if CLIENT then
@@ -544,7 +543,7 @@ end
 function SWEP:demonicSheepView(ent)
 	local pos = ent:GetPos()
 	local ang = ent:GetAngles()
-	pos = pos - ang:Forward() * self.sheepViewDistanceForward + ang:Up() * self.sheepViewDistanceUp
+	pos = pos - ang:Forward() * self.sheepViewDistanceForward + ang:Up() * self.sheepViewDistanceUp + ang:Right() * self.sheepViewDistanceSide
 
 	return pos,ang
 end
@@ -552,7 +551,7 @@ end
 -- To show Target IDs of players this is hooked to TTTModifyTargetedEntity and calculates the entity, the sheep can see
 function SWEP:remoteTargetId()
 	local ent = self:GetdemonicSheepEnt()
-	if not IsValid(ent) or not self:GetdemonicSheepEntInUse() then return end
+	if LocalPlayer() ~= self:GetOwner() or not IsValid(ent) or not self:GetdemonicSheepEntInUse() then return end
 
 	local pos, ang = self:demonicSheepView(ent)
 	local dir = ang:Forward()
@@ -576,7 +575,7 @@ function SWEP:playDrawWeaponAnimation(bPlayDrawAnimation)
 end
 
 function SWEP:shouldDrawLocalPlayer()
-	if self:GetdemonicSheepEntInUse() and LocalPlayer() == self:GetOwner() then
+	if self:GetdemonicSheepEntInUse() and (LocalPlayer() == self:GetOwner() or LocalPlayer():GetObserverTarget() == self:GetOwner())then
 		return true
 	else
 		-- Let other addons be able to decide if it should be shown by returning nothing
@@ -738,71 +737,13 @@ function SWEP:RemoveHooks()
 
 		if CLIENT then
 			hook.Remove("CreateMove", "blockPlayerActionsInLaunch" .. tostring(self:GetmyId()))
+			hook.Remove("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()))
+			hook.Remove("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()))
+			hook.Remove("TTTRenderEntityInfo", "demonicSheepBlockOldItemInfos" .. tostring(self:GetmyId()))
 		end
 		hook.Remove("PlayerUse", "demonicsheepPickupItem" .. tostring(self:GetmyId()))
 		hook.Remove("Move", "blockPlayerActions" .. tostring(self:GetmyId()))
 		hook.Remove("ShouldDrawLocalPlayer", "demonicsheepShowLocalPlayer" .. tostring(self:GetmyId()))
-		hook.Remove("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()))
-		hook.Remove("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()))
-		hook.Remove("TTTRenderEntityInfo", "demonicSheepBlockOldItemInfos" .. tostring(self:GetmyId()))
 		hook.Remove("StartCommand", "readPlayerMovement" .. tostring(self:GetmyId()))
 		hook.Remove("StartCommand", "manipulatePlayerActions" .. tostring(self:GetmyId()))
 end
-
--- OLD Code that could be helpful to get some stuff done
---[[
-function SWEP:Initialize()
-	local function demonicsheep_ObserverView( ply, pos, angles, fov )
-			if (not IsValid(ply) or ply:GetNWBool("Spectatedemonicsheep") ~= true or not IsValid(ply:GetNWEntity("Spectating_demonicsheep"))) then return end
-			local demonicsheep_ent = ply:GetNWEntity("Spectating_demonicsheep")
-			local view = {}
-			local minifiedViewOrigin = demonicsheep_ent:GetPos() -( angles:Forward() * 50 + Vector(0, 0, -10))
-			local magnifiedViewOrigin = demonicsheep_ent:GetPos() -( angles:Forward() * 100 + Vector(0, 0, -45))
-			local interpolValue = 1
-			if demonicsheep_ent.MinifiedStart then
-				interpolValue = CurTime() - demonicsheep_ent.MinifiedStart
-			end
-
-			if demonicsheep_ent.Minified then
-				if (interpolValue < 1) then
-					view.origin = minifiedViewOrigin * interpolValue + magnifiedViewOrigin * (1- interpolValue)
-				else
-					view.origin = minifiedViewOrigin
-				end
-			else
-				if (interpolValue < 1) then
-					view.origin = magnifiedViewOrigin * interpolValue + minifiedViewOrigin * (1- interpolValue)
-				else
-					view.origin = magnifiedViewOrigin
-				end
-			end
-
-			view.angles = angles
-			view.fov = fov
-			view.drawviewer = true
-
-			return view
-	end
-
-	hook.Add( "CalcView", "demonicsheep_ObserverView", demonicsheep_ObserverView )
-
-	hook.Add("Think", "demonicsheep_LetPlayerObserve", function()
-		for k, v in pairs( player.GetAll() ) do
-			local observerTarget = v:GetObserverTarget()
-			if (observerTarget ~= nil and IsValid(observerTarget) and observerTarget:IsPlayer() and observerTarget:Alive() and IsValid(observerTarget:GetActiveWeapon()) and observerTarget:GetActiveWeapon():GetClass() == "weapon_ttt_demonicsheep") then
-				local demonicsheep_entity = observerTarget:GetNWEntity("demonicsheep_entity")
-				if (IsValid(demonicsheep_entity) and SERVER) then
-					--v:SpectateEntity(demonicsheep_entity)
-					--v:Spectate(OBS_MODE_CHASE)
-					v:SetNWBool("Spectatedemonicsheep",true)
-					v:SetNWEntity("Spectating_demonicsheep", demonicsheep_entity)
-				else
-					--v:SetNWBool("Spectatedemonicsheep",false)
-				end
-			else
-				v:SetNWBool("Spectatedemonicsheep",false)
-			end
-		end
-	end)
-end
---]]
