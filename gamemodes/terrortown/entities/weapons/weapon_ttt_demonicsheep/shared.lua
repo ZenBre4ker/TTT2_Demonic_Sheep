@@ -180,18 +180,13 @@ function SWEP:Initialize()
 	end)
 
 	-- Manage the dropped Item to give you the real SWEP and remove both
-	hook.Add("PlayerUse", "demonicsheepPickupItem" .. tostring(self:GetmyId()), function(ply, entity)
+	hook.Add("PlayerUse", "demonicsheepUseItem" .. tostring(self:GetmyId()), function(ply, entity)
 		if IsValid(ply) and IsValid(entity) and entity:GetModel() == self.ItemModel
 		and ply:CanCarryType(WEAPON_EQUIP2) and not ply:HasWeapon(self:GetClass())
 		and entity:GetNWInt("myId") and entity:GetNWInt("myId") == self:GetmyId() then
 			ply:PickupWeapon(self)
 
 			entity:Remove()
-			return false
-		end
-
-		-- In case that the invisible worldmodel is picked up, disable it
-		if IsValid(ply) and IsValid(entity) and entity == self then
 			return false
 		end
 		return
@@ -220,6 +215,8 @@ function SWEP:Initialize()
 			if ent:GetClass() ~= "weapon_ttt_demonicsheep" or ent:GetmyId() ~= self:GetmyId() then return end
 			tData:EnableText(false)
 		end)
+
+		-- Enable TargetID when controlling the sheep
 		hook.Add("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()), function()
 			if not self.remoteTargetId then return end
 			return self:remoteTargetId()
@@ -248,6 +245,10 @@ end
 
 function SWEP:Equip(newOwner)
 	self:SetlastOwner(newOwner)
+
+	--Remove dropped item double
+	local itemDrop = self:GetitemDrop()
+	if IsValid(itemDrop) and IsEntity(itemDrop) then itemDrop:Remove() end
 end
 
 function SWEP:Deploy()
@@ -314,6 +315,7 @@ function SWEP:OnDrop()
 	return
 end
 
+-- Creates a double of the dropped Item, that can be picked up with a proper collision model
 function SWEP:dropItemModel()
 	ent_item = ents.Create("prop_ragdoll")
 
@@ -406,6 +408,8 @@ function SWEP:launchSheep()
 
 	-- Initialize entity after animation is finished
 	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration()
+
+	-- Block Movement until the sheeps fully launched
 	hook.Add("CreateMove", "blockPlayerActionsInLaunch"  .. tostring(self:GetmyId()), function(cmd)
 		cmd:ClearMovement()
 		cmd:ClearButtons()
@@ -416,6 +420,7 @@ function SWEP:launchSheep()
 		self:controlSheep(ply, cmd)
 	end)
 
+	-- Spawn the sheep invisible to sync it with clients early
 	if SERVER then
 		local ent = ents.Create("ent_demonicsheep")
 
@@ -541,6 +546,8 @@ function SWEP:DrawWorldModel()
 	self:DrawModel()
 end
 
+-- This controls the view, when you wield the demonicsheep
+-- also does the work for observers
 function SWEP:CalcView(ply, pos, ang, fov )
 	if self:GetdemonicSheepEntInUse() then
 		local ent = self:GetdemonicSheepEnt()
@@ -734,7 +741,7 @@ function demonicSheepFnc.receiveClientControlData(len, ply)
 	tracedEnt:SetNWString("demonicSheepControlKey", currentControl[1])
 	tracedEnt:SetNWFloat("demonicSheepControlEndTime", CurTime() + currentControl[2])
 
-	-- Play the controlsound for all
+	-- Play the controlsound for all on the weapon
 	swep:EmitSound("demonicsheep_controlsound")
 end
 
