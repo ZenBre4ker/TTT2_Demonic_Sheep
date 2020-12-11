@@ -111,6 +111,10 @@ function ENT:RenderEntityInfo(tData)
 	)
 end
 
+function ENT:GetDisguiserTarget()
+	return self
+end
+
 -- In Think we handle only Physics-Interactions
 function ENT:Think()
 	if CLIENT then return end -- Normally you would do the prediction here too, but somehow the entities differ and you get a big stutter while you are in Sheep Control
