@@ -1,7 +1,7 @@
 -- File copied from TTT2 out of my own Pullrequest
 -- Switching to official version if it gets released
 -- This works only as placeholder
--- Status: Unreleased, Last Checked Date: 22.10.2020
+-- Status: Unreleased, Last Checked Date: 11.12.2020
 
 if SERVER then
     AddCSLuaFile()

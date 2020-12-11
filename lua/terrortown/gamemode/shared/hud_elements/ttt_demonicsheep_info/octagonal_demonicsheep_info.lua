@@ -100,7 +100,7 @@ if CLIENT then -- CLIENT
 	end
 
 	function HUDELEMENT:Drawdemonicsheep(x, y, w, h, fontColor, demonicsheep)
-		local ent = demonicsheep.demonicSheepEnt
+		local ent = demonicsheep:GetdemonicSheepEnt()
 
 		local health = 100
 		local maxHealth = 100
@@ -120,7 +120,7 @@ if CLIENT then -- CLIENT
 
 		ry = ry + self.barHeight + self.spaceBar
 
-		local controlState = demonicsheep.currentControlType
+		local controlState = demonicsheep:GetcurrentControlType()
 		local maxStates = #demonicsheep.availableControls
 
 		if interpCount ~= controlState then
