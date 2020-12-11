@@ -203,6 +203,12 @@ function SWEP:Initialize()
 	end)
 
 	if CLIENT then
+
+		-- TODO: Remove Hotfix for TTT2 Disguiser
+		hook.Add("Think", "HotfixDisguiser" .. tostring(self:GetmyId()), function()
+			self:GetDisguiserTargetFix()
+		end)
+
 		-- Add a Target ID to the Item using the actual weapon's infos
 		hook.Add("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()), function(ent, distance)
 			if ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWInt("myId") or ent:GetNWInt("myId") ~= self:GetmyId() then return end
@@ -336,6 +342,14 @@ function SWEP:dropItemModel()
 
 	local phys = ent_item:GetPhysicsObject()
 	phys:ApplyForceCenter((self:GetlastOwner():GetPhysicsObject():GetVelocity() * 2 + self:GetlastOwner():GetAimVector() * 400 + Vector(0, 0, 100)) * 30)
+end
+
+-- TODO: Remove Hotfix for TTT2 Disguiser
+function SWEP:GetDisguiserTargetFix()
+	local itemModel = self:GetitemDrop()
+	if not IsValid(itemModel) or not IsEntity(itemModel) or itemModel.GetDisguiserTarget then return end
+	itemModel.GetDisguiserTarget = function() return self end
+	return
 end
 
 function SWEP:OnRemove()
@@ -755,6 +769,9 @@ end
 function SWEP:RemoveHooks()
 
 		if CLIENT then
+			-- TODO: Remove Hotfix for TTT2 Disguiser
+			hook.Remove("Think", "HotfixDisguiser" .. tostring(self:GetmyId()))
+
 			hook.Remove("CreateMove", "blockPlayerActionsInLaunch" .. tostring(self:GetmyId()))
 			hook.Remove("TTTModifyTargetedEntity", "demonicSheepTargetId" .. tostring(self:GetmyId()))
 			hook.Remove("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()))
