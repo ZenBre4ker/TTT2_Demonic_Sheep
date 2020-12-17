@@ -2,6 +2,9 @@ local base = "pure_skin_element"
 
 DEFINE_BASECLASS(base)
 
+local element = hudelements.GetStored(base)
+if not element then return end
+
 HUDELEMENT.Base = base
 
 if SERVER then
