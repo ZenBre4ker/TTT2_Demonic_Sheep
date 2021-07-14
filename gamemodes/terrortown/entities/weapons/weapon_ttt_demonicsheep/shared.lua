@@ -440,12 +440,19 @@ function SWEP:launchSheep()
 
 		if (not IsValid(ent)) then return end
 
-		local ply = self:GetOwner()
+		local owner = self:GetOwner()
 		self:SetdemonicSheepEnt(ent)
 
-		ent:SetPos(ply:EyePos() + ply:EyeAngles():Forward() * 50)
-		ent:SetAngles(ply:EyeAngles())
-		ent:SetOwner(ply)
+		-- Add a hook, so that everything gets rendered around that entity
+		hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self:GetmyId()), function(ply, viewent)
+			if IsValid(ply) and IsValid(self:GetdemonicSheepEnt()) then
+				AddOriginToPVS(self:GetdemonicSheepEnt():GetPos())
+			end
+		end)
+
+		ent:SetPos(owner:EyePos() + owner:EyeAngles():Forward() * 50)
+		ent:SetAngles(owner:EyeAngles())
+		ent:SetOwner(owner)
 		ent.demonicSheepSwep = self
 
 		ent:Spawn()
@@ -841,4 +848,5 @@ function SWEP:RemoveHooks()
 		hook.Remove("ShouldDrawLocalPlayer", "demonicsheepShowLocalPlayer" .. tostring(self:GetmyId()))
 		hook.Remove("StartCommand", "readPlayerMovement" .. tostring(self:GetmyId()))
 		hook.Remove("StartCommand", "manipulatePlayerActions" .. tostring(self:GetmyId()))
+		hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self:GetmyId()))
 end

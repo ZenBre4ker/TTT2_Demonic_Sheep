@@ -70,14 +70,6 @@ function ENT:Initialize()
 
 	self.nextTime = CurTime()
 
-	-- Add a hook, so that everything gets rendered around that entity
-	hook.Add("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self.myId), function(ply, viewent)
-		if IsValid(ply) and IsValid(ply:GetNWEntity("demonicSheepEnt")) then
-			local sheep = ply:GetNWEntity("demonicSheepEnt")
-			AddOriginToPVS(sheep:GetPos())
-		end
-	end)
-
 	-- Add a Target ID to the Demonic Sheep
 	hook.Add("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId), function(tData)
 		if self.RenderEntityInfo then
@@ -260,7 +252,6 @@ function ENT:OnTakeDamage(dmgInfo)
 	damageDir:Normalize()
 	self.bumpBackDir = damageDir
 	self.bumpBackTimer = CurTime() + self.bumpBackTime
-
 end
 
 
@@ -270,7 +261,6 @@ function ENT:OnRemove()
 
 	self:CreateRagdoll()
 
-	hook.Remove("SetupPlayerVisibility", "demonicSheepAddToPVS" .. tostring(self.myId))
 	hook.Remove("TTTRenderEntityInfo", "demonicSheepEntityInfos" .. tostring(self.myId))
 	return
 end
