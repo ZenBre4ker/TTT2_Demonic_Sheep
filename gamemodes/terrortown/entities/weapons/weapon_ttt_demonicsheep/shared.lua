@@ -112,7 +112,7 @@ sound.Add( {
 name = "demonicsheep_baa",
 channel = CHAN_WEAPON,
 volume = 1,
-level = 85,
+level = 75,
 sound = "ttt_demonicsheep/demonicsheep_sound.wav"
 } )
 
@@ -120,7 +120,7 @@ sound.Add( {
 name = "demonicsheep_wind_ominous",
 channel = CHAN_STATIC,
 volume = 1,
-level = 80,
+level = 70,
 sound = "ttt_demonicsheep/ominous_wind.wav"
 } )
 
@@ -128,7 +128,7 @@ sound.Add( {
 name = "demonicsheep_wind_background",
 channel = CHAN_STATIC,
 volume = 0.3,
-level = 75,
+level = 70,
 sound = "ambient/levels/canals/windmill_wind_loop1.wav"
 } )
 
@@ -136,7 +136,7 @@ sound.Add( {
 name = "demonicsheep_controlsound",
 channel = CHAN_WEAPON,
 volume = 0.5,
-level = 70,
+level = 65,
 sound = "garrysmod/ui_click.wav"
 } )
 
