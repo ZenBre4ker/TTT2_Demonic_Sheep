@@ -1,3 +1,17 @@
+if not TTT2 then
+	print("\nMissing core TargetID-Functions.\nThe Demonic Sheep is only available for TTT2!\n")
+	return
+end
+
+-- Initializing Convars
+local demonicSheepReloadTime = GetConVar("ttt_DemnShp_ReloadTime")
+local demonicSheepEnableAttackControl = GetConVar("ttt_DemnShp_EnableAttackControl")
+local demonicSheepAttackControlDuration = GetConVar("ttt_DemnShp_AttackControlDuration")
+local demonicSheepEnableDropControl = GetConVar("ttt_DemnShp_EnableDropControl")
+local demonicSheepEnableHolsterControl = GetConVar("ttt_DemnShp_EnableHolsterControl")
+local demonicSheepEnableMovementControl = GetConVar("ttt_DemnShp_EnableMovementControl")
+local demonicSheepMovementControlDuration = GetConVar("ttt_DemnShp_MovementControlDuration")
+
 -- Server only Initialization
 if SERVER then
 	AddCSLuaFile()
@@ -6,7 +20,9 @@ if SERVER then
 
 	util.PrecacheSound("ttt_demonicsheep/demonicsheep_sound.wav")
 	util.PrecacheSound("ttt_demonicsheep/ominous_wind.wav")
+
 	util.PrecacheModel("models/weapons/item_ttt_demonicsheep.mdl")
+
 	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
 		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
 	end
@@ -46,14 +62,14 @@ SWEP.AutoSpawnable		= false
 SWEP.LimitedStock		= false
 SWEP.AllowDrop			= true
 SWEP.Kind				= WEAPON_EQUIP2
-SWEP.CanBuy				= { ROLE_TRAITOR }
+SWEP.CanBuy				= {ROLE_TRAITOR}
 SWEP.WeaponID			= AMMO_DEMONICSHEEP
 
 SWEP.DeploySpeed		= 0.01
 SWEP.Primary.Ammo		= "Demonicsheep"
 SWEP.Primary.Recoil		= 0
 SWEP.Primary.Damage		= 0
-SWEP.Primary.Delay		= 1
+SWEP.Primary.Delay		= 1 -- This has no effect as its being determined by the ConVar
 SWEP.Primary.Cone		= 0
 SWEP.Primary.ClipSize	= 1
 SWEP.Primary.ClipMax	= 1
@@ -87,6 +103,7 @@ SWEP.sheepViewDistanceUp = 25
 SWEP.sheepViewDistanceSide = -10
 
 -- Available Controles are {"ControlType", duration}
+-- This is just an example. All values are changed by ConvarValues anyways.
 SWEP.availableControls = {
 	{"Attack", 0.5},
 	{"Drop Weapon", 0.2},
@@ -95,9 +112,9 @@ SWEP.availableControls = {
 	{"Move Backward", 1},
 }
 
--- Handling serveral SWEPs in one game
--- TODO: Should be converted to SWEP.Variable for global use
+-- Handling several SWEPs in one game
 local demonicSheepSwepCount = 0
+local maxSheepCount = 2^8 - 1
 
 -- Sounds
 sound.Add( {
@@ -152,9 +169,11 @@ end
 
 -- All SWEP functions
 function SWEP:Initialize()
-	demonicSheepSwepCount = demonicSheepSwepCount + 1
+	demonicSheepSwepCount = (demonicSheepSwepCount + 1) % maxSheepCount
 
 	self:SetNetworkedVariables()
+	self:AddConVarCallbacks(true)
+	self:ApplyConVarValues()
 	self:SetHoldType("magic")
 
 	if CLIENT then
@@ -354,6 +373,7 @@ end
 
 function SWEP:OnRemove()
 	self:RemoveHooks()
+	self:AddConVarCallbacks(false) -- Removes ConVar Callbacks
 
 	-- Allow safe Removal
 	if SERVER then
@@ -414,6 +434,8 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:launchSheep()
+	if self.resetSightsTimer then return end
+
 	self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
 	self:EmitSound("demonicsheep_baa")
 	self:SetdemonicSheepEntOut(true)
@@ -421,7 +443,7 @@ function SWEP:launchSheep()
 	self:SetallowHolster(false)
 
 	-- Initialize entity after animation is finished
-	self.initializeSheepTimer = CurTime() + self:GetOwner():GetViewModel():SequenceDuration()
+	self.initializeSheepTimer = CurTime() + self.primaryAttDuration
 
 	-- Block Movement until the sheeps fully launched
 	hook.Add("CreateMove", "blockPlayerActionsInLaunch"  .. tostring(self:GetmyId()), function(cmd)
@@ -675,6 +697,69 @@ end
 	end
 --
 
+function SWEP:AddConVarCallbacks(AddCallbacks)
+	if AddCallbacks then
+		cvars.AddChangeCallback("ttt_DemnShp_ReloadTime", function() self:ApplyConVarValues() return end, "ttt_DemnShp_ReloadTime" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_EnableAttackControl", function() self:ApplyConVarValues() return end, "ttt_DemnShp_EnableAttackControl" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_AttackControlDuration", function() self:ApplyConVarValues() return end, "ttt_DemnShp_AttackControlDuration" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_EnableDropControl", function() self:ApplyConVarValues() return end, "ttt_DemnShp_EnableDropControl" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_EnableHolsterControl", function() self:ApplyConVarValues() return end, "ttt_DemnShp_EnableHolsterControl" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_EnableMovementControl", function() self:ApplyConVarValues() return end, "ttt_DemnShp_EnableMovementControl" .. tostring(self:GetmyId()))
+		cvars.AddChangeCallback("ttt_DemnShp_MovementControlDuration", function() self:ApplyConVarValues() return end, "ttt_DemnShp_MovementControlDuration" .. tostring(self:GetmyId()))
+	else
+		cvars.RemoveChangeCallback("ttt_DemnShp_ReloadTime", "ttt_DemnShp_ReloadTime" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_EnableAttackControl", "ttt_DemnShp_EnableAttackControl" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_AttackControlDuration", "ttt_DemnShp_AttackControlDuration" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_EnableDropControl", "ttt_DemnShp_EnableDropControl" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_EnableHolsterControl", "ttt_DemnShp_EnableHolsterControl" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_EnableMovementControl", "ttt_DemnShp_EnableMovementControl" .. tostring(self:GetmyId()))
+		cvars.RemoveChangeCallback("ttt_DemnShp_MovementControlDuration", "ttt_DemnShp_MovementControlDuration" .. tostring(self:GetmyId()))
+	end
+end
+
+function SWEP:ApplyConVarValues()
+
+	self.Primary.Delay = demonicSheepReloadTime:GetFloat()
+
+	self.availableControls = {}
+	local counter = 1;
+
+	local enableAttack = demonicSheepEnableAttackControl:GetBool()
+	local attackDuration = demonicSheepAttackControlDuration:GetFloat()
+
+	local enableDrop = demonicSheepEnableDropControl:GetBool()
+
+	local enableHolster = demonicSheepEnableHolsterControl:GetBool()
+
+	local enableMovement = demonicSheepEnableMovementControl:GetBool()
+	local movementDuration = demonicSheepMovementControlDuration:GetFloat()
+
+	-- Iterate through all 4 Control-Varieties (Movement being 2 of the same)
+	for i = 1,5 do
+		if i == 1 and enableAttack then
+			self.availableControls[counter] = {"Attack", attackDuration}
+		elseif i == 2 and enableDrop then
+			self.availableControls[counter] = {"Drop Weapon", 0.2}
+		elseif i == 3 and enableHolster then
+			self.availableControls[counter] = {"Holster Weapon", 0.2}
+		elseif i == 4 and enableMovement then
+			self.availableControls[counter] = {"Move Forward", movementDuration}
+			counter = counter + 1
+			self.availableControls[counter] = {"Move Backward", movementDuration}
+		-- elseif i == 5 and enable... then -- Add more controls here
+		-- otherwise add "None mode" for Safety
+		elseif i == 5 and counter <= 1 then
+			self.availableControls[counter] = {"None", 0}
+		else
+			continue
+		end
+		counter = counter + 1
+	end
+
+	self:SetcurrentControlType(math.Clamp(self:GetcurrentControlType(), 1, #self.availableControls)) -- Make sure not to access ControlTypes outside tablesize
+
+end
+
 function SWEP:manipulatePlayer(ply, cmd)
 	if not IsValid(ply) or not ply:GetNWBool("isDemonicSheepControlled") or not IsValid(self:GetOwner()) then return end
 	local wep = self:GetOwner():GetActiveWeapon()
@@ -690,9 +775,8 @@ function SWEP:manipulatePlayer(ply, cmd)
 		elseif controlKey == "Drop Weapon" then
 			if SERVER and #ply:GetWeapons() > 3 and ply:GetActiveWeapon().AllowDrop then
 				ply:DropWeapon() -- only available on Server
-			else
-				ply:SetNWBool("isDemonicSheepControlled", false)
 			end
+			ply:SetNWBool("isDemonicSheepControlled", false)
 		elseif controlKey == "Holster Weapon" then
 			local changeToSwep = ply:GetWeapons()[3] -- 3 Should be Holstered in TTT if not changed
 			if IsValid(changeToSwep) then

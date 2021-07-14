@@ -18,13 +18,15 @@ if file.Exists("terrortown/scripts/sh_convarutil_local.lua", "LUA") then
 	--Example:
 	--Convar(cg, false, "ttt_asm_shift_speed_modifier", 2, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Movement speed multiplier during the aiming sequence", "float", 0.01, 8, 2)
 
-	Convar(cg, false, "ttt_DemnShp_SkipAnimation", 0, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep play its attack Animation?", "bool", 0, 1, 0)
-	--Convar(cg, false, "ttt_satm_traitor", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should Traitors be able to buy the SATM?", "bool", 0, 1, 0)
-	Convar(cg, false, "ttt_DemnShp_duration", 30, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How long the duration of the Demonic Sheep should be?", "int", 1, 60, 0)
-	--Convar(cg, false, "ttt_satm_use_charges", 4, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How many charges should the SATM overall have?", "int", 1, 10, 0)
-	--Convar(cg, false, "ttt_satm_teleport_charges", 2, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How many charges should the teleport function have?", "int", 1, 10, 0)
+	Convar(cg, true, "ttt_DemnShp_ReloadTime", 1.0, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Time between two Control-Attacks.", "float", 0.1, 5.0, 1)
+	Convar(cg, true, "ttt_DemnShp_EnableAttackControl", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep be able to Control Primary Attacks?", "bool", 0, 1, 0)
+	Convar(cg, true, "ttt_DemnShp_AttackControlDuration", 0.5, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How long the duration of the Attack Control should be?", "float", 0.1, 5.0, 1)
+	Convar(cg, true, "ttt_DemnShp_EnableDropControl", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep be able to drop Enemy Weapons?", "bool", 0, 1, 0)
+	Convar(cg, true, "ttt_DemnShp_EnableHolsterControl", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep be able to holster Enemy Weapons?", "bool", 0, 1, 0)
+	Convar(cg, true, "ttt_DemnShp_EnableMovementControl", 1, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Should the Sheep be able to Control Enemy Movement?", "bool", 0, 1, 0)
+	Convar(cg, true, "ttt_DemnShp_MovementControlDuration", 1.0, {FCVAR_SERVER_CAN_EXECUTE, FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "How long the duration of the Movement Control should be?", "float", 0.5, 5.0, 1)
 --
 
-print(shortNameOfAddon .. " Convars are created.")
+print(longNameOfAddon .. " Convars are created.")
 
 end
