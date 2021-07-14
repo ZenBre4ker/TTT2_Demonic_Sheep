@@ -124,7 +124,8 @@ if CLIENT then -- CLIENT
 		ry = ry + self.barHeight + self.spaceBar
 
 		local controlState = demonicsheep:GetcurrentControlType()
-		local maxStates = #demonicsheep.availableControls
+		local availableControls = demonicsheep.availableControls
+		local maxStates = #availableControls
 
 		if interpCount ~= controlState then
 			interpCount = controlState
@@ -133,7 +134,7 @@ if CLIENT then -- CLIENT
 
 		--draw ControlMode bar
 		local controlTextLeft = "Control:"
-		local controlTextCenter = demonicsheep.availableControls[controlState][1]
+		local controlTextCenter = availableControls[controlState][1]
 		local controlTextRight = "(" .. tostring(controlState) .. "/" .. tostring(maxStates) .. ")"
 		self:DrawBar(rx, ry, bw, bh, interpColor, 1, self.scale) -- old Bar with progress p=(controlState - 1) / (maxStates - 1)
 		draw.AdvancedText(controlTextLeft, "PureSkinBar", rx + self.spaceBar, ry + 1 * self.scale, fontColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_LEFT, true, self.scale)
@@ -147,10 +148,12 @@ if CLIENT then -- CLIENT
 		local b = Color1.b
 		local a = Color1.a
 
-		r = r + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.r - r) / (maxSteps - 1)
-		g = g + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.g - g) / (maxSteps - 1)
-		b = b + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.b - b) / (maxSteps - 1)
-		a = a + (math.Clamp(step, 1, maxSteps) - 1) * (Color2.a - a) / (maxSteps - 1)
+		step = (math.Clamp(step, 1, maxSteps) - 1)
+
+		r = r + step / maxSteps * (Color2.r - r)
+		g = g + step / maxSteps * (Color2.g - g)
+		b = b + step / maxSteps * (Color2.b - b)
+		a = a + step / maxSteps * (Color2.a - a)
 
 		return Color(r, g, b, a)
 	end

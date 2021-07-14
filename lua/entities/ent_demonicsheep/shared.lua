@@ -1,3 +1,5 @@
+if not TTT2 then return end
+
 if SERVER then
 	AddCSLuaFile()
 end
