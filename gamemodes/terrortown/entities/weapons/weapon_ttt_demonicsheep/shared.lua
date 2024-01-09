@@ -22,15 +22,6 @@ if SERVER then
 	util.PrecacheSound("ttt_demonicsheep/ominous_wind.wav")
 
 	util.PrecacheModel("models/weapons/item_ttt_demonicsheep.mdl")
-
-	if file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
-		AddCSLuaFile("terrortown/scripts/targetid_implementations.lua")
-	end
-end
-
--- Client only Initialization
-if CLIENT and file.Exists("terrortown/scripts/targetid_implementations.lua", "LUA") then
-	include("terrortown/scripts/targetid_implementations.lua")
 end
 
 -- Creates a library which handles global functions for receiving Data

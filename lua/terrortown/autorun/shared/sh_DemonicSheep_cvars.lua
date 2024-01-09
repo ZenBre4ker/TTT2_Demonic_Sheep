@@ -1,4 +1,4 @@
---make sure that the convarutil.lua exists that adds all convars
+-- make sure that the convarutil.lua exists that adds all convars
 if SERVER then
 	AddCSLuaFile()
 	if file.Exists("terrortown/scripts/sh_convarutil_local.lua", "LUA") then
