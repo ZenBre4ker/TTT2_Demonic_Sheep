@@ -225,12 +225,14 @@ function SWEP:Initialize()
 
 		-- TODO: Remove Hotfix for TTT2 Disguiser
 		hook.Add("Think", "HotfixDisguiser" .. tostring(self:GetmyId()), function()
+			if not IsValid(self) then return end
+
 			self:GetDisguiserTargetFix()
 		end)
 
 		-- Add a Target ID to the Item using the actual weapon's infos
 		hook.Add("TTTModifyTargetedEntity", "demonicSheepChangeItemInfos" .. tostring(self:GetmyId()), function(ent, distance)
-			if ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWInt("myId") or ent:GetNWInt("myId") ~= self:GetmyId() then return end
+			if not IsValid(self) or ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWInt("myId") or ent:GetNWInt("myId") ~= self:GetmyId() then return end
 			return self
 		end)
 
